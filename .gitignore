@@ -1,1 +1,5 @@
+# System
 .DS_Store
+
+# env
+.env.php
