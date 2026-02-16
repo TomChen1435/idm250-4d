@@ -2,7 +2,8 @@
 session_start();
 require_once 'db_connect.php';
 
-
+$message = '';
+$username = $_SESSION['username'] ?? 'U';
 
 // Stats
 $total_row  = $mysqli->query("SELECT SUM(quantity_available) AS total FROM inventory")->fetch_assoc();
@@ -10,7 +11,7 @@ $in_stock   = $mysqli->query("SELECT SUM(quantity_available) AS total FROM inven
 $total_units = (int)($total_row['total'] ?? 0);
 $in_stock_units = (int)($in_stock['total'] ?? 0);
 
-// ── Fetch inventory joined with sku table ─────────────
+// Fetch inventory joined with sku table
 $search       = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
 $uom_filter   = isset($_GET['uom'])    ? $mysqli->real_escape_string(trim($_GET['uom']))    : '';
 
@@ -30,11 +31,11 @@ $result = $mysqli->query("
 ");
 $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
-// ── UOM options for filter ────────────────────────────
+// UOM options for filter
 $uom_result = $mysqli->query("SELECT DISTINCT uom FROM sku WHERE uom IS NOT NULL ORDER BY uom");
 $uoms = $uom_result ? $uom_result->fetch_all(MYSQLI_ASSOC) : [];
 
-// ── SKU list for dropdown in modal ───────────────────
+// SKU list for dropdown in modal
 $sku_result = $mysqli->query("SELECT sku, description FROM sku ORDER BY sku ASC");
 $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
@@ -46,7 +47,6 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
     <title>Current Inventory - 4D Warehouse</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-
 </head>
 <body>
 
@@ -63,11 +63,9 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="orders.php" class="nav-item">
                 <p>Orders</p>
             </a>
-
-             <a href="order-items.php" class="nav-item">
+            <a href="order-items.php" class="nav-item">
                 <p>Order Items</p>
             </a>
-            
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>
@@ -86,7 +84,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             <div class="header-right">
                 <button class="icon-btn">🔔</button>
                 <button class="icon-btn">⚙️</button>
-                <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 1)) ?></div>
+                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
 
@@ -156,7 +154,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
                         <tr>
                             <td colspan="9">
                                 <div class="empty-state">
-                                    <div style="font-size:48px;">📭</div>
+                                    <div style="font-size:48px;">🔭</div>
                                     <p>No inventory records found.<br>Add your first entry above.</p>
                                 </div>
                             </td>
