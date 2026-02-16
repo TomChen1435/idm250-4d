@@ -1,80 +1,190 @@
 <?php
+session_start();
+require_once 'db_connect.php';
 
-require_once('../db_connect.php');
-require_once('../auth.php');
 
-$sql = "SELECT sku_id, sku_name, sku_description,
-        FROM recipes_idm_232";
 
-$result = $conn->query($sql);
+// Fetch SKUs
+$search = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
+$where  = $search ? "WHERE sku LIKE '%$search%' OR description LIKE '%$search%' OR ficha LIKE '%$search%'" : '';
+$result = $mysqli->query("SELECT * FROM sku $where ORDER BY id ASC LIMIT 50");
+$skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
-<h2>SKU Management</h2>
-<p>Manage and edit product SKUs in your warehouse</p>
-
-
-<form method="get">
-    <input
-        type="text"
-        name="search"
-        placeholder="Search by SKU, name, or category..."
-        value="<?= htmlspecialchars($searchTerm) ?>"
-    >
-    <button type="submit">Search</button>
-</form>
-
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Dimension</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($filteredSKUs as $sku): ?>
-            <tr>
-                <td><?= htmlspecialchars($sku['id']) ?></td>
-                <td><?= htmlspecialchars($sku['name']) ?></td>
-                <td><?= htmlspecialchars($sku['description']) ?></td>
-                <td><?= htmlspecialchars($sku['dimension']) ?></td>
-                <td class="actions">
-                    <a href="?edit=<?= urlencode($sku['id']) ?>">Edit</a>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-
-
-
-
-
-//product form
-
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4D WMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    
+</head>
 <body>
-    <h1><?php echo isset($_GET['id']) ? 'Edit Product' : 'Create New Product'; ?></h1>
-    <?php
-    require '../lib/cms.php';
 
-    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-    $product = $id ? getProductById($id) : null;
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">4D WMS</div>
+        <nav class="nav">
+            <a href="index.php" class="nav-item active">
+                <p>SKUs</p>
+            </a>
+            <a href="inventory.php" class="nav-item">
+                <p>Current Inventory</p>
+            </a>
+            <a href="orders.php" class="nav-item">
+                <p>Orders</p>
+            </a>
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if($id) update_product($id, $_POST);
-        else create_product($_POST);
-        }
-        header('Location: index.php');
-        exit;
-    }
+            <a href="order-items.php" class="nav-item">
+                <p>Order Items</p>
+            </a>
 
-    <form method='POST">
-            <div class= "form-control">
-                <label for="name">Name:</label>
-                <input type="text" id="name" name="name" value="<?php echo $product['name']? htmlspecialchars($product['name']) : ''; ?>" required>
-    '
+            <a href="shipped.php" class="nav-item">
+                <p>Shipped</p>
+            </a>
+        </nav>
+        <div class="logout">
+            <a href="#" class="logout-btn">
+                <p>Logout</p>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="header">
+            <div></div>
+            <div class="header-right">
+                <button class="icon-btn">🔔</button>
+                <button class="icon-btn">⚙️</button>
+                <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 1)) ?></div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="breadcrumb">Warehouse / SKU Management</div>
+            <h1 class="page-title">SKU Management</h1>
+            <p class="page-subtitle">Manage and edit product SKUs in your warehouse</p>
+
+            <?php if ($message): ?>
+                <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
+                    <?= htmlspecialchars($message) ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="search-bar">
+                <input type="text" class="search-input"
+                       placeholder="Search by SKU, description, or ficha..."
+                       value="<?= htmlspecialchars($search) ?>"
+                       onchange="window.location.href='index.php?search=' + encodeURIComponent(this.value)">
+                <button class="btn-primary" onclick="openAddModal()">
+                    <span>+</span> Add New SKU
+                </button>
+            </div>
+
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Ficha</th>
+                            <th>SKU</th>
+                            <th>Description</th>
+                            <th>UOM</th>
+                            <th>Pieces</th>
+                            <th>L × W × H</th>
+                            <th>Weight</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($skus)): ?>
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:#9CA3AF; padding:40px;">
+                                No SKUs found.
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                        <?php foreach ($skus as $s): ?>
+                        <tr>
+                            <td><span class="sku-id"><?= htmlspecialchars($s['ficha']) ?></span></td>
+                            <td><span class="sku-id"><?= htmlspecialchars($s['sku']) ?></span></td>
+                            <td><span class="description"><?= htmlspecialchars($s['description']) ?></span></td>
+                            <td><?= htmlspecialchars($s['uom']) ?></td>
+                            <td><?= htmlspecialchars($s['pieces']) ?></td>
+                            <td class="dimension"><?= $s['length'] ?> × <?= $s['width'] ?> × <?= $s['height'] ?></td>
+                            <td><?= number_format($s['weight'], 2) ?></td>
+                            <td>
+                                <button class="edit-btn" onclick='editSKU(<?= htmlspecialchars(json_encode($s), ENT_QUOTES) ?>)'>
+                                    Edit
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+
+        <footer class="footer">© 2025 4D Warehouse Management System</footer>
+    </div>
+
+    <!-- Modal -->
+    <div id="skuModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-header" id="modalTitle">Add New SKU</h2>
+            <form method="POST">
+                <input type="hidden" name="action" id="formAction" value="add">
+                <input type="hidden" name="id" id="skuId">
+
+                <div class="form-group">
+                    <label class="form-label">Ficha #</label>
+                    <input type="number" name="ficha" id="ficha" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">SKU</label>
+                    <input type="text" name="sku" id="sku" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" id="description" class="form-textarea"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">UOM</label>
+                    <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pieces</label>
+                    <input type="number" name="pieces" id="pieces" class="form-input">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Length</label>
+                        <input type="number" step="0.01" name="length" id="length" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Width</label>
+                        <input type="number" step="0.01" name="width" id="width" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Height</label>
+                        <input type="number" step="0.01" name="height" id="height" class="form-input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight</label>
+                    <input type="number" step="0.01" name="weight" id="weight" class="form-input">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Save SKU</button>
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+     <script src="app.js"></script>
 </body>
+</html>
