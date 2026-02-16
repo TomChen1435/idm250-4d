@@ -2,13 +2,16 @@
 session_start();
 require_once 'db_connect.php';
 
-
+$message = '';
 
 // Fetch SKUs
 $search = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
 $where  = $search ? "WHERE sku LIKE '%$search%' OR description LIKE '%$search%' OR ficha LIKE '%$search%'" : '';
 $result = $mysqli->query("SELECT * FROM sku $where ORDER BY id ASC LIMIT 50");
 $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Fallback username if session not set
+$username = $_SESSION['username'] ?? 'Enoch';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,7 +61,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <div class="header-right">
                 <button class="icon-btn">🔔</button>
                 <button class="icon-btn">⚙️</button>
-                <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 1)) ?></div>
+                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
 

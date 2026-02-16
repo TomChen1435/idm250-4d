@@ -1,11 +1,13 @@
 <?php
 
+$env = parse_ini_file(__DIR__ . '/.env');
+
 $mysqli = new mysqli(
-    $_ENV['DB_HOST'] ?? '127.0.0.1',
-    $_ENV['DB_USER'] ?? 'root',
-    $_ENV['DB_PASS'] ?? 'root',
-    $_ENV['DB_NAME'] ?? '4d_wms',
-    (int)($_ENV['DB_PORT'] ?? 8889)
+    $env['DB_HOST'],
+    $env['DB_USER'],
+    $env['DB_PASS'],
+    $env['DB_NAME'],
+    (int)$env['DB_PORT']
 );
 
 if ($mysqli->connect_error) {
