@@ -2,4 +2,7 @@
 .DS_Store
 
 # env
-.env.php
+.env
+
+.htaccess
+_htaccess
