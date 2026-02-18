@@ -37,6 +37,10 @@ require_once 'db_connect.php';
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>
+
+            <a href="mpl.php" class="nav-item">
+                <p>MPL</p>
+            </a>
         </nav>
         <div class="logout">
             <a href="#" class="logout-btn">
