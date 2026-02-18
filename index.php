@@ -11,8 +11,11 @@ $result = $mysqli->query("SELECT * FROM sku $where ORDER BY id ASC LIMIT 50");
 $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
 // Fallback username if session not set
-$username = $_SESSION['username'] ?? 'Enoch';
+$username = $_SESSION['username'] ?? 'U';
 ?>
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,6 +48,10 @@ $username = $_SESSION['username'] ?? 'Enoch';
 
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
+            </a>
+
+            <a href="mpl.php" class="nav-item">
+                <p>MPL</p>
             </a>
         </nav>
         <div class="logout">
