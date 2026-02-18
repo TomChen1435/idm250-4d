@@ -1,6 +1,7 @@
 
   html {
-    --background: #F9FAFB;
+    --bg: #F9FAFB;
+    --sidebarbg: #374151;
     --white: #FFFFFF;
     --white2: #D1D5DB;
     --bluegray: #374151;
@@ -19,8 +20,8 @@
 
   body {
       font-family: 'Inter', sans-serif;
-      background: var(--background);
-      color: #1F2937;
+      background: var(--bg);
+      color: var(--darkblue);
       display: flex;
       min-height: 100vh;
   }
@@ -28,8 +29,8 @@
   /* Sidebar */
   .sidebar {
       width: 200px;
-      background: #374151;
-      color: #FFFFFF;
+      background: var(--sidebarbg);
+      color: var(--white);
       padding: 0;
       display: flex;
       flex-direction: column;
@@ -52,7 +53,7 @@
       align-items: center;
       gap: 12px;
       padding: 12px 20px;
-      color: #D1D5DB;
+      color: var(--white2);
       text-decoration: none;
       font-size: 14px;
       transition: all 0.2s;
@@ -61,12 +62,12 @@
 
   .nav-item:hover {
       background: rgba(255, 255, 255, 0.05);
-      color: #FFFFFF;
+      color: var(--white);
   }
 
   .nav-item.active {
-      background: #D4AF37;
-      color: #1F2937;
+      background: var(--yellow);
+      color: var(--darkblue);
       font-weight: 500;
       border-radius: 8px;
       margin: 0 12px;
@@ -86,7 +87,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #D1D5DB;
+      color: var(--white2);
       text-decoration: none;
       font-size: 14px;
       padding: 8px 0;
@@ -101,7 +102,7 @@
 
   /* Header */
   .header {
-      background: #FFFFFF;
+      background: var(--white);
       padding: 16px 32px;
       display: flex;
       justify-content: space-between;
@@ -125,7 +126,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #6B7280;
+      color: var(--bluegray);
       font-size: 18px;
   }
 
@@ -137,12 +138,12 @@
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: #D4AF37;
+      background: var(--yellow);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 600;
-      color: #1F2937;
+      color: var(--darkblue);
   }
 
   /* Content Area */
@@ -179,21 +180,21 @@
   .search-input {
       flex: 1;
       padding: 10px 16px 10px 40px;
-      border: 1px solid #D1D5DB;
+      border: 1px solid var(--white2);
       border-radius: 8px;
       font-size: 14px;
-      background: #FFFFFF url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 12C9.76142 12 12 9.76142 12 7C12 4.23858 9.76142 2 7 2C4.23858 2 2 4.23858 2 7C2 9.76142 4.23858 12 7 12Z' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 14L10.65 10.65' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat 12px center;
+      background: var(--white) url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 12C9.76142 12 12 9.76142 12 7C12 4.23858 9.76142 2 7 2C4.23858 2 2 4.23858 2 7C2 9.76142 4.23858 12 7 12Z' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 14L10.65 10.65' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat 12px center;
   }
 
   .search-input:focus {
       outline: none;
-      border-color: #D4AF37;
+      border-color: var(--yellow);
   }
 
   .btn-primary {
       padding: 10px 24px;
-      background: #D4AF37;
-      color: #1F2937;
+      background: var(--yellow);
+      color: var(--darkblue);
       border: none;
       border-radius: 8px;
       font-size: 14px;
@@ -205,14 +206,14 @@
   }
 
   .btn-primary:hover {
-      background: #C5A02F;
+      background: var(--yellow);
   }
 
   /* Table */
   .card {
-      background: #FFFFFF;
+      background: var(--white);
       border-radius: 12px;
-      border: 1px solid #E5E7EB;
+      border: 1px solid var(--white2);
       overflow: hidden;
   }
 
@@ -233,7 +234,7 @@
       color: #6B7280;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      border-bottom: 1px solid #E5E7EB;
+      border-bottom: 1px solid var(--white2);
   }
 
   .table td {
@@ -374,7 +375,7 @@
   .btn-secondary {
       padding: 10px 24px;
       background: #F3F4F6;
-      color: #374151;
+      color: var(--bluegray);
       border: none;
       border-radius: 8px;
       font-size: 14px;
@@ -387,9 +388,7 @@
   }
 
 
-/* ═══════════════════════════════════════════════
-   MESSAGES
-═══════════════════════════════════════════════ */
+/*  MESSAGES */
 .message {
     padding: 12px 16px;
     margin-bottom: 20px;
@@ -399,9 +398,7 @@
 .message.success { background: #D1FAE5; color: #065F46; }
 .message.error   { background: #FEE2E2; color: #991B1B; }
 
-/* ═══════════════════════════════════════════════
-   INVENTORY — STATS
-═══════════════════════════════════════════════ */
+/* INVENTORY — STATS */
 .stats-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -430,9 +427,7 @@
 
 .stat-value.green { color: #10B981; }
 
-/* ═══════════════════════════════════════════════
-   INVENTORY — FILTERS
-═══════════════════════════════════════════════ */
+/* INVENTORY — FILTERS  */
 .filters {
     display: flex;
     gap: 12px;
@@ -452,9 +447,7 @@
 
 .select-box:focus { outline: none; border-color: #D4AF37; }
 
-/* ═══════════════════════════════════════════════
-   INVENTORY — STATUS BADGES
-═══════════════════════════════════════════════ */
+/* INVENTORY — STATUS BADGES */
 .status-badge {
     display: inline-block;
     padding: 4px 12px;
@@ -467,9 +460,7 @@
 .badge-low      { background: #FEF3C7; color: #92400E; }
 .badge-out      { background: #FEE2E2; color: #991B1B; }
 
-/* ═══════════════════════════════════════════════
-   INVENTORY — TABLE HELPERS
-═══════════════════════════════════════════════ */
+/* INVENTORY — TABLE HELPERS */
 .qty          { font-weight: 600; font-size: 15px; }
 .qty-reserved { color: #6B7280; font-size: 13px; }
 

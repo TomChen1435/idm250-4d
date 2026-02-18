@@ -2,9 +2,34 @@
 session_start();
 require_once 'db_connect.php';
 
+$message = '';
+$username = $_SESSION['username'] ?? 'U';
 
+// Stats
+$total_orders = $mysqli->query("SELECT COUNT(*) AS total FROM orders")->fetch_assoc()['total'] ?? 0;
+$total_items = $mysqli->query("SELECT COUNT(*) AS total FROM order_items")->fetch_assoc()['total'] ?? 0;
+$pending_count = $mysqli->query("SELECT COUNT(*) AS total FROM orders WHERE status = 'pending'")->fetch_assoc()['total'] ?? 0;
+$shipped_count = $mysqli->query("SELECT COUNT(*) AS total FROM orders WHERE status = 'shipped'")->fetch_assoc()['total'] ?? 0;
 
+// Filters
+$search = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
+$status_filter = isset($_GET['status']) ? $mysqli->real_escape_string(trim($_GET['status'])) : '';
 
+$where_parts = [];
+if ($search) $where_parts[] = "(order_number LIKE '%$search%' OR customer_name LIKE '%$search%' OR address LIKE '%$search%')";
+if ($status_filter) $where_parts[] = "status = '$status_filter'";
+$where = $where_parts ? 'WHERE ' . implode(' AND ', $where_parts) : '';
+
+// Fetch orders with item count
+$result = $mysqli->query("
+    SELECT o.*, 
+           (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS total_items
+    FROM orders o
+    $where
+    ORDER BY o.time_created DESC
+    LIMIT 100
+");
+$orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -29,15 +54,12 @@ require_once 'db_connect.php';
             <a href="orders.php" class="nav-item active">
                 <p>Orders</p>
             </a>
-
-             <a href="order-items.php" class="nav-item">
+            <a href="order-items.php" class="nav-item">
                 <p>Order Items</p>
             </a>
-            
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>
-
             <a href="mpl.php" class="nav-item">
                 <p>MPL</p>
             </a>
@@ -55,7 +77,7 @@ require_once 'db_connect.php';
             <div class="header-right">
                 <button class="icon-btn">🔔</button>
                 <button class="icon-btn">⚙️</button>
-                <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 1)) ?></div>
+                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
 
@@ -173,7 +195,7 @@ require_once 'db_connect.php';
             </div>
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse System</footer>
+        <footer class="footer">© 2026 4D Warehouse System</footer>
     </div>
 
     <!-- Add / Edit Modal -->

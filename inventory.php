@@ -69,6 +69,10 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>
+
+            <a href="mpl.php" class="nav-item">
+                <p>MPL</p>
+            </a>
         </nav>
         <div class="logout">
             <a href="#" class="logout-btn">
@@ -194,7 +198,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             </div>
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse Management System</footer>
+        <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
     <!-- Modal -->
