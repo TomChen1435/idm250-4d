@@ -195,7 +195,7 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             </div>
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse System</footer>
+        <footer class="footer">© 2026 4D Warehouse System</footer>
     </div>
 
     <!-- Add / Edit Modal -->

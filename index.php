@@ -137,7 +137,7 @@ $username = $_SESSION['username'] ?? 'U';
             </div>
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse Management System</footer>
+        <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
     <!-- Modal -->
