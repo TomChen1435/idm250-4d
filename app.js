@@ -54,6 +54,13 @@ function editSKU(s) {
     document.getElementById('skuModal').classList.add('active');
 }
 
+function deleteSKU(id) {
+    if (!confirm('Are you sure you want to delete this SKU? This cannot be undone.')) return;
+    document.getElementById('deleteSKUId').value = id;
+    document.getElementById('deleteSKUForm').submit();
+}
+
+
 // ═══════════════════════════════════════════════════════
 // INVENTORY (inventory.php)
 // ═══════════════════════════════════════════════════════
