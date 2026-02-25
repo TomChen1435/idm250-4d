@@ -1,4 +1,4 @@
-// app.js — 4D Warehouse Management System
+
 
 // ═══════════════════════════════════════════════════════
 // LOGIN & REGISTRATION (login.php)
@@ -63,34 +63,34 @@ function closeModal() {
 // ═══════════════════════════════════════════════════════
 
 function openAddModal() {
-    document.getElementById('modalTitle').textContent  = 'Add New SKU';
-    document.getElementById('formAction').value        = 'add';
-    document.getElementById('skuId').value             = '';
-    document.getElementById('ficha').value             = '';
-    document.getElementById('sku').value               = '';
-    document.getElementById('description').value       = '';
-    document.getElementById('uom').value               = '';
-    document.getElementById('pieces').value            = '';
-    document.getElementById('length').value            = '';
-    document.getElementById('width').value             = '';
-    document.getElementById('height').value            = '';
-    document.getElementById('weight').value            = '';
+    document.getElementById('modalTitle').textContent = 'Add New SKU';
+    document.getElementById('formAction').value = 'add';
+    document.getElementById('skuId').value = '';
+    document.getElementById('ficha').value = '';
+    document.getElementById('sku').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('uom').value = '';
+    document.getElementById('pieces').value = '';
+    document.getElementById('length').value = '';
+    document.getElementById('width').value = '';
+    document.getElementById('height').value = '';
+    document.getElementById('weight').value = '';
     document.getElementById('skuModal').classList.add('active');
 }
 
-function editSKU(s) {
-    document.getElementById('modalTitle').textContent  = 'Edit SKU';
-    document.getElementById('formAction').value        = 'update';
-    document.getElementById('skuId').value             = s.id;
-    document.getElementById('ficha').value             = s.ficha;
-    document.getElementById('sku').value               = s.sku;
-    document.getElementById('description').value       = s.description || '';
-    document.getElementById('uom').value               = s.uom        || '';
-    document.getElementById('pieces').value            = s.pieces     || '';
-    document.getElementById('length').value            = s.length     || '';
-    document.getElementById('width').value             = s.width      || '';
-    document.getElementById('height').value            = s.height     || '';
-    document.getElementById('weight').value            = s.weight     || '';
+function editSKU(sku) {
+    document.getElementById('modalTitle').textContent = 'Edit SKU';
+    document.getElementById('formAction').value = 'update';
+    document.getElementById('skuId').value = sku.id;
+    document.getElementById('ficha').value = sku.ficha;
+    document.getElementById('sku').value = sku.sku;
+    document.getElementById('description').value = sku.description || '';
+    document.getElementById('uom').value = sku.uom || '';
+    document.getElementById('pieces').value = sku.pieces || '';
+    document.getElementById('length').value = sku.length || '';
+    document.getElementById('width').value = sku.width || '';
+    document.getElementById('height').value = sku.height || '';
+    document.getElementById('weight').value = sku.weight || '';
     document.getElementById('skuModal').classList.add('active');
 }
 

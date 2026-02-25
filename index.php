@@ -4,6 +4,7 @@ require_once 'auth.php';
 require_login();
 
 $message = '';
+$username = $_SESSION['username'] ?? 'U';
 
 // ── Handle Add / Update / Delete ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -36,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $weight      = (float) $_POST['weight'];
 
             $ok = $mysqli->query("UPDATE sku SET
-                                  ficha='$ficha', sku='$sku', description='$description',
+                                  ficha=$ficha, sku='$sku', description='$description',
                                   uom='$uom', pieces=$pieces, length=$length,
                                   width=$width, height=$height, weight=$weight
                                   WHERE id=$id");
@@ -79,16 +80,15 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="inventory.php"  class="nav-item" >
                 <p>Current Inventory</p>
             </a>
-            <a href="orders.php" class="nav-item">
-                <p>Orders</p>
-            </a>
-           
-            <a href="shipped.php" class="nav-item">
-                <p>Shipped</p>
-            </a>
+
             <a href="mpl.php" class="nav-item">
                 <p>MPL</p>
             </a>
+
+            <a href="orders.php" class="nav-item">
+                <p>Orders</p>
+            </a>
+            
         </nav>
         <div class="logout">
             <a href="logout.php" class="logout-btn">
@@ -104,14 +104,14 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <div class="header-right">
                 <button class="icon-btn">🔔</button>
                 <button class="icon-btn">⚙️</button>
-                <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 1)) ?></div>
+                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
 
         <main class="content">
             <div class="breadcrumb">Warehouse / SKU Management</div>
             <h1 class="page-title">SKU Management</h1>
-            <p class="page-subtitle">Manage and edit product SKUs in your warehouse</p>
+            <p class="page-subtitle">Create, view, edit, and delete product SKUs</p>
 
             <?php if ($message): ?>
                 <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
@@ -134,7 +134,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <thead>
                         <tr>
                             <th>Ficha</th>
-                            <th>SKU</th>
+                            <th>SKU Code</th>
                             <th>Description</th>
                             <th>UOM</th>
                             <th>Pieces</th>
@@ -194,7 +194,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <input type="number" name="ficha" id="ficha" class="form-input" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">SKU</label>
+                    <label class="form-label">SKU Code</label>
                     <input type="text" name="sku" id="sku" class="form-input" required>
                 </div>
                 <div class="form-group">
@@ -202,29 +202,29 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <textarea name="description" id="description" class="form-textarea"></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">UOM</label>
-                    <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE">
+                    <label class="form-label">UOM (Unit of Measure)</label>
+                    <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE, BOX">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Pieces</label>
+                    <label class="form-label">Pieces per Unit</label>
                     <input type="number" name="pieces" id="pieces" class="form-input">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div class="form-group">
-                        <label class="form-label">Length</label>
+                        <label class="form-label">Length (in)</label>
                         <input type="number" step="0.01" name="length" id="length" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Width</label>
+                        <label class="form-label">Width (in)</label>
                         <input type="number" step="0.01" name="width" id="width" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Height</label>
+                        <label class="form-label">Height (in)</label>
                         <input type="number" step="0.01" name="height" id="height" class="form-input">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Weight</label>
+                    <label class="form-label">Weight (lbs)</label>
                     <input type="number" step="0.01" name="weight" id="weight" class="form-input">
                 </div>
 
@@ -242,6 +242,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <input type="hidden" name="id"     id="deleteSKUId">
     </form>
 
-    <script src="js/app.js"></script>
+    <script src="app.js"></script>
+    
 </body>
 </html>
