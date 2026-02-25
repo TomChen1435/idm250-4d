@@ -78,12 +78,14 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="index.php"      class="nav-item"><p>SKUs</p></a>
             <a href="inventory.php"  class="nav-item"><p>Current Inventory</p></a>
             <a href="orders.php"     class="nav-item"><p>Orders</p></a>
-            <a href="order-items.php" class="nav-item"><p>Order Items</p></a>
+            
             <a href="shipped.php"    class="nav-item"><p>Shipped</p></a>
             <a href="mpl.php"        class="nav-item active"><p>MPL</p></a>
         </nav>
         <div class="logout">
-            <a href="#" class="logout-btn"><p>Logout</p></a>
+            <a href="logout.php" class="logout-btn">
+                <p>Logout</p>
+            </a>
         </div>
     </div>
 

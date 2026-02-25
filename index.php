@@ -82,9 +82,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="orders.php" class="nav-item">
                 <p>Orders</p>
             </a>
-            <a href="order-items.php" class="nav-item">
-                <p>Order Items</p>
-            </a>
+           
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>

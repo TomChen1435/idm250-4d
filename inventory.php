@@ -77,7 +77,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             </a>
         </nav>
         <div class="logout">
-            <a href="#" class="logout-btn">
+            <a href="logout.php" class="logout-btn">
                 <p>Logout</p>
             </a>
         </div>
