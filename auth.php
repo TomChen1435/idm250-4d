@@ -1,24 +1,17 @@
 <?php
-/**
- * Authentication Functions
- * Handles login, logout, session checking, and API key validation
- */
+
 
 // Start session for non-API requests
 if (!defined('API_REQUEST') && session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-/**
- * Check if user is logged in
- */
+/* Check if user is logged in */
 function is_logged_in() {
     return isset($_SESSION['user_id']) && isset($_SESSION['user_email']);
 }
 
-/**
- * Require login - redirect to login page if not authenticated
- */
+/* Require login - redirect to login page if not authenticated */
 function require_login() {
     if (!is_logged_in()) {
         header('Location: /login.php');
@@ -26,13 +19,7 @@ function require_login() {
     }
 }
 
-/**
- * Login user with email and password
- * 
- * @param string $email User email
- * @param string $password Plain text password
- * @return array ['success' => bool, 'message' => string]
- */
+/* Login user with email and password */
 function login_user($email, $password) {
     global $mysqli;
     
@@ -64,9 +51,7 @@ function login_user($email, $password) {
     return ['success' => true, 'message' => 'Login successful'];
 }
 
-/**
- * Logout user - destroy session
- */
+/* Logout user - destroy session */
 function logout_user() {
     $_SESSION = [];
     
@@ -77,20 +62,14 @@ function logout_user() {
     session_destroy();
 }
 
-/**
- * Validate API key from request headers
- * Used by API endpoints to authenticate incoming requests
- * 
- * @param string $expected_key The API key to check against
- * @return bool True if valid, false otherwise
- */
+/* Validate API key from request headers */
 function validate_api_key($expected_key) {
     $headers = getallheaders();
     
-    // Normalize header keys to lowercase
+
     $headers = array_change_key_case($headers, CASE_LOWER);
     
-    // Check for x-api-key header
+   
     if (!isset($headers['x-api-key'])) {
         return false;
     }
@@ -98,14 +77,8 @@ function validate_api_key($expected_key) {
     return $headers['x-api-key'] === $expected_key;
 }
 
-/**
- * Return JSON error response and exit
- * Used by API endpoints
- * 
- * @param int $code HTTP status code
- * @param string $error Error message
- * @param string $details Additional details (optional)
- */
+/* Return JSON error response and exit */
+
 function api_error($code, $error, $details = '') {
     http_response_code($code);
     header('Content-Type: application/json');
@@ -119,13 +92,8 @@ function api_error($code, $error, $details = '') {
     exit;
 }
 
-/**
- * Return JSON success response and exit
- * Used by API endpoints
- * 
- * @param array $data Data to return
- * @param int $code HTTP status code (default 200)
- */
+/* Return JSON success response and exit */
+
 function api_success($data, $code = 200) {
     http_response_code($code);
     header('Content-Type: application/json');
