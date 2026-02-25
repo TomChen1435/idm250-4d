@@ -13,9 +13,16 @@ function is_logged_in() {
 /* Require login - redirect to login page if not authenticated */
 function require_login() {
     if (!is_logged_in()) {
-
+        // Get the base path dynamically to work with subdirectories
         $script_dir = dirname($_SERVER['SCRIPT_NAME']);
-        $base_path = $script_dir === '/' ? '' : $script_dir;
+        
+        // If at root, use empty string, otherwise use the directory
+        if ($script_dir === '/' || $script_dir === '\\') {
+            $base_path = '';
+        } else {
+            $base_path = rtrim($script_dir, '/\\');
+        }
+        
         header('Location: ' . $base_path . '/login.php');
         exit;
     }
