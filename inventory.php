@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once 'db_connect.php';
+require_once 'auth.php';
+require_login();
 
 $message = '';
 $username = $_SESSION['username'] ?? 'U';
@@ -75,7 +77,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             </a>
         </nav>
         <div class="logout">
-            <a href="#" class="logout-btn">
+            <a href="logout.php" class="logout-btn">
                 <p>Logout</p>
             </a>
         </div>
