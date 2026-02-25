@@ -1,17 +1,57 @@
 // app.js — 4D Warehouse Management System
 
-// ── Generic modal close on backdrop click ─────────────
-document.addEventListener('DOMContentLoaded', function () {
+// ═══════════════════════════════════════════════════════
+// LOGIN & REGISTRATION (login.php)
+// ═══════════════════════════════════════════════════════
 
+function switchTab(tab) {
+    // Update URL without reload
+    const url = new URL(window.location);
+    url.searchParams.set('mode', tab);
+    window.history.pushState({}, '', url);
+    
+    // Show/hide tabs
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    
+    if (loginTab && registerTab) {
+        loginTab.classList.toggle('active', tab === 'login');
+        registerTab.classList.toggle('active', tab === 'register');
+    }
+    
+    // Update tab buttons
+    document.querySelectorAll('.login-tab').forEach((btn, i) => {
+        btn.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+    });
+}
+
+function togglePassword(fieldId) {
+    const input = document.getElementById(fieldId);
+    if (!input) return;
+    
+    const btn = input.parentElement.querySelector('.password-toggle-btn');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = 'Hide';
+    } else {
+        input.type = 'password';
+        if (btn) btn.textContent = 'Show';
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// GENERIC MODAL HANDLERS
+// ═══════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Close modal on backdrop click
     document.querySelectorAll('.modal').forEach(function (modal) {
         modal.addEventListener('click', function (e) {
             if (e.target === this) closeModal();
         });
     });
-
 });
 
-// ── Shared close ──────────────────────────────────────
 function closeModal() {
     document.querySelectorAll('.modal').forEach(function (m) {
         m.classList.remove('active');
@@ -60,7 +100,6 @@ function deleteSKU(id) {
     document.getElementById('deleteSKUForm').submit();
 }
 
-
 // ═══════════════════════════════════════════════════════
 // INVENTORY (inventory.php)
 // ═══════════════════════════════════════════════════════
@@ -88,7 +127,6 @@ function editRow(r) {
     document.getElementById('skuTextGroup').style.display   = '';
     document.getElementById('invModal').classList.add('active');
 }
-
 
 // ═══════════════════════════════════════════════════════
 // ORDERS (orders.php)
@@ -165,7 +203,6 @@ function deleteItem(id) {
     document.getElementById('deleteItemId').value = id;
     document.getElementById('deleteItemForm').submit();
 }
-
 
 // ═══════════════════════════════════════════════════════
 // MPL (mpl.php)

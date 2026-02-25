@@ -1,11 +1,7 @@
 <?php
-session_start();
 require_once 'db_connect.php';
-
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = 1;
-    $_SESSION['username'] = 'A';
-}
+require_once 'auth.php';
+require_login();
 
 $message = '';
 
@@ -25,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $ok = $mysqli->query("INSERT INTO sku (ficha, sku, description, uom, pieces, length, width, height, weight)
                                   VALUES ($ficha, '$sku', '$description', '$uom', $pieces, $length, $width, $height, $weight)");
-            $message = $ok ? '✅ SKU added successfully!' : '❌ Error: ' . $mysqli->error;
+            $message = $ok ? 'SKU added successfully!' : 'Error: ' . $mysqli->error;
 
         } elseif ($_POST['action'] === 'update') {
             $id          = (int)   $_POST['id'];
@@ -44,55 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                   uom='$uom', pieces=$pieces, length=$length,
                                   width=$width, height=$height, weight=$weight
                                   WHERE id=$id");
-            $message = $ok ? '✅ SKU updated successfully!' : '❌ Error: ' . $mysqli->error;
+            $message = $ok ? 'SKU updated successfully!' : 'Error: ' . $mysqli->error;
 
         } elseif ($_POST['action'] === 'delete') {
             $id = (int) $_POST['id'];
             $ok = $mysqli->query("DELETE FROM sku WHERE id = $id");
-            $message = $ok ? '✅ SKU deleted successfully!' : '❌ Error: ' . $mysqli->error;
+            $message = $ok ? 'SKU deleted successfully!' : 'Error: ' . $mysqli->error;
         }
     } catch (Exception $e) {
-        $message = '❌ Error: ' . $e->getMessage();
-    }
-}
-
-
-// ── Handle Add / Update ───────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-
-    if ($_POST['action'] === 'add') {
-        $ficha       = (int)   $_POST['ficha'];
-        $sku         = $mysqli->real_escape_string(trim($_POST['sku']));
-        $description = $mysqli->real_escape_string(trim($_POST['description']));
-        $uom         = $mysqli->real_escape_string(trim($_POST['uom']));
-        $pieces      = (int)   $_POST['pieces'];
-        $length      = (float) $_POST['length'];
-        $width       = (float) $_POST['width'];
-        $height      = (float) $_POST['height'];
-        $weight      = (float) $_POST['weight'];
-
-        $ok = $mysqli->query("INSERT INTO sku (ficha, sku, description, uom, pieces, length, width, height, weight)
-                              VALUES ($ficha, '$sku', '$description', '$uom', $pieces, $length, $width, $height, $weight)");
-        $message = $ok ? '✅ SKU added successfully!' : '❌ Error: ' . $mysqli->error;
-
-    } elseif ($_POST['action'] === 'update') {
-        $id          = (int)   $_POST['id'];
-        $ficha       = (int)   $_POST['ficha'];
-        $sku         = $mysqli->real_escape_string(trim($_POST['sku']));
-        $description = $mysqli->real_escape_string(trim($_POST['description']));
-        $uom         = $mysqli->real_escape_string(trim($_POST['uom']));
-        $pieces      = (int)   $_POST['pieces'];
-        $length      = (float) $_POST['length'];
-        $width       = (float) $_POST['width'];
-        $height      = (float) $_POST['height'];
-        $weight      = (float) $_POST['weight'];
-
-        $ok = $mysqli->query("UPDATE sku SET
-                              ficha='$ficha', sku='$sku', description='$description',
-                              uom='$uom', pieces=$pieces, length=$length,
-                              width=$width, height=$height, weight=$weight
-                              WHERE id=$id");
-        $message = $ok ? '✅ SKU updated successfully!' : '❌ Error: ' . $mysqli->error;
+        $message = 'Error: ' . $e->getMessage();
     }
 }
 
@@ -107,10 +63,9 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SKU Management - 4D Warehouse</title>
+    <title>SKU Management - 4D WMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-
 </head>
 <body>
 
@@ -133,13 +88,12 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="shipped.php" class="nav-item">
                 <p>Shipped</p>
             </a>
-
             <a href="mpl.php" class="nav-item">
                 <p>MPL</p>
             </a>
         </nav>
         <div class="logout">
-            <a href="#" class="logout-btn">
+            <a href="logout.php" class="logout-btn">
                 <p>Logout</p>
             </a>
         </div>
@@ -213,7 +167,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                                     <button class="edit-btn" onclick='editSKU(<?= htmlspecialchars(json_encode($s), ENT_QUOTES) ?>)'>
                                         Edit
                                     </button>
-                                    <button class="edit-btn" onclick="deleteSKU(<?= $s['id'] ?>)">
+                                    <button class="delete-btn" onclick="deleteSKU(<?= $s['id'] ?>)">
                                         Delete
                                     </button>
                                 </div>
@@ -226,7 +180,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             </div>
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse System</footer>
+        <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
     <!-- Modal -->
