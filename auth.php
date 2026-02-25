@@ -1,6 +1,5 @@
 <?php
 
-
 // Start session for non-API requests
 if (!defined('API_REQUEST') && session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -14,7 +13,10 @@ function is_logged_in() {
 /* Require login - redirect to login page if not authenticated */
 function require_login() {
     if (!is_logged_in()) {
-        header('Location: /login.php');
+
+        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+        $base_path = $script_dir === '/' ? '' : $script_dir;
+        header('Location: ' . $base_path . '/login.php');
         exit;
     }
 }
@@ -66,10 +68,8 @@ function logout_user() {
 function validate_api_key($expected_key) {
     $headers = getallheaders();
     
-
     $headers = array_change_key_case($headers, CASE_LOWER);
     
-   
     if (!isset($headers['x-api-key'])) {
         return false;
     }
@@ -78,7 +78,6 @@ function validate_api_key($expected_key) {
 }
 
 /* Return JSON error response and exit */
-
 function api_error($code, $error, $details = '') {
     http_response_code($code);
     header('Content-Type: application/json');
@@ -93,7 +92,6 @@ function api_error($code, $error, $details = '') {
 }
 
 /* Return JSON success response and exit */
-
 function api_success($data, $code = 200) {
     http_response_code($code);
     header('Content-Type: application/json');

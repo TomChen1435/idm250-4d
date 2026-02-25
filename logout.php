@@ -1,17 +1,13 @@
 <?php
-session_start();
+require_once 'auth.php';
 
-// Destroy all session data
-$_SESSION = [];
+// Logout the user
+logout_user();
 
-// Destroy the session cookie
-if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 3600, '/');
-}
-
-// Destroy the session
-session_destroy();
+// Get base path for redirect
+$script_dir = dirname($_SERVER['SCRIPT_NAME']);
+$base_path = $script_dir === '/' ? '' : $script_dir;
 
 // Redirect to login page
-header('Location: login.php');
+header('Location: ' . $base_path . '/login.php');
 exit;
