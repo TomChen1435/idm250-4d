@@ -83,8 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'shipped_at' => date('Y-m-d')
             ];
             
-            // TODO: Replace with actual CMS callback URL
-            $cms_callback_url = 'https://cms.example.com/api/v1/orders.php';
+            // Mock CMS callback URL for testing
+            $cms_callback_url = 'http://localhost:8888/api/mock_cms_orders.php';
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();

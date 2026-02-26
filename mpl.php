@@ -69,8 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'reference_number' => $mpl['mpl_number']
             ];
             
-            // TODO: Replace with actual CMS callback URL
-            $cms_callback_url = 'https://cms.example.com/api/v1/mpls.php';
+            // Mock CMS callback URL for testing
+            $cms_callback_url = 'http://localhost:8888/api/mock_cms_mpls.php';
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
