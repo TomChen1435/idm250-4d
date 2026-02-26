@@ -67,6 +67,9 @@ $uoms = $uom_result ? $uom_result->fetch_all(MYSQLI_ASSOC) : [];
                 <p>Orders</p>
             </a>
         
+            <a href="shipped.php" class="nav-item">
+                <p>Shipped Items</p>
+            </a>
            
         </nav>
         <div class="logout">

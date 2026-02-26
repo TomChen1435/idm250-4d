@@ -179,15 +179,18 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="inventory.php" class="nav-item">
                 <p>Current Inventory</p>
             </a>
+
+            <a href="mpl.php" class="nav-item">
+                <p>MPL</p>
+            </a>
+
             <a href="orders.php" class="nav-item active">
                 <p>Orders</p>
             </a>
             <a href="shipped.php" class="nav-item">
-                <p>Shipped</p>
+                <p>Shipped Items</p>
             </a>
-            <a href="mpl.php" class="nav-item">
-                <p>MPL</p>
-            </a>
+            
         </nav>
         <div class="logout">
             <a href="logout.php" class="logout-btn">
