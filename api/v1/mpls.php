@@ -1,12 +1,25 @@
 <?php
-
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 define('API_REQUEST', true);
 require_once '../../db_connect.php';
 require_once '../../auth.php';
 
 // Load environment config
-$env = parse_ini_file(__DIR__ . '/../../.env');
+$env_path = __DIR__ . '/../../.env';
+if (!file_exists($env_path)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration error', 'details' => '.env file not found']);
+    exit;
+}
+$env = parse_ini_file($env_path);
+
+if (!isset($env['X-API-KEY'])) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration error', 'details' => 'X-API-KEY not found in .env']);
+    exit;
+}
 
 // Set JSON response header
 header('Content-Type: application/json');
@@ -102,17 +115,28 @@ try {
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $insert_sku->bind_param('ssidddddi',
+                $description = $details['description'] ?? '';
+                $uom         = $details['uom'] ?? '';
+                $pieces      = $details['pieces'] ?? 0;
+                $length      = $details['length'] ?? 0;
+                $width       = $details['width'] ?? 0;
+                $height      = $details['height'] ?? 0;
+                $weight      = $details['weight'] ?? 0;
+                $ficha       = $details['ficha'] ?? 0;
+
+                $insert_sku->bind_param(
+                    'ssidddddi',
                     $sku,
-                    $details['description'] ?? '',
-                    $details['uom'] ?? '',
-                    $details['pieces'] ?? 0,
-                    $details['length'] ?? 0,
-                    $details['width'] ?? 0,
-                    $details['height'] ?? 0,
-                    $details['weight'] ?? 0,
-                    $details['ficha'] ?? 0
+                    $description,
+                    $uom,
+                    $pieces,
+                    $length,
+                    $width,
+                    $height,
+                    $weight,
+                    $ficha
                 );
+
                 $insert_sku->execute();
                 $sku_id = $mysqli->insert_id;
             } else {
@@ -125,7 +149,9 @@ try {
         }
         
         // Insert packing list item
-        $item_stmt = $mysqli->prepare("INSERT INTO packing_list_items (mpl_id, sku_id, quantity_expected, quantity_received, status, created_at) 
+
+        $item_stmt = $mysqli->prepare("
+        INSERT INTO packing_list_items (mpl_id, sku, quantity_expected, quantity_received, status, created_at) 
                                        VALUES (?, ?, ?, 0, 'pending', NOW())");
         $item_stmt->bind_param('iii', $mpl_id, $sku_id, $quantity);
         $item_stmt->execute();

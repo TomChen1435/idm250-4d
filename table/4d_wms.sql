@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Feb 04, 2026 at 05:50 PM
+-- Generation Time: Feb 26, 2026 at 08:24 PM
 -- Server version: 5.7.24
 -- PHP Version: 8.3.1
 
@@ -101,6 +101,22 @@ CREATE TABLE `packing_list_items` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `shipped_items`
+--
+
+CREATE TABLE `shipped_items` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `order_number` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `sku` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quantity` int(11) NOT NULL,
+  `customer_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipped_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `sku`
 --
 
@@ -145,11 +161,19 @@ INSERT INTO `sku` (`id`, `ficha`, `sku`, `description`, `uom`, `pieces`, `length
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `first_name` varchar(100) DEFAULT NULL,
-  `last_name` varchar(100) DEFAULT NULL
+  `last_login` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `last_login`, `created_at`) VALUES
+(1, 'enoch', 'et556@drexel.edu', '$2y$10$d.A4x7MRcJ9DDbj0CmLlKeMgZGW0AjAuxlW9QctPH0FeKg6KM0.c.', '2026-02-25 04:00:53', '2026-02-25 08:54:21'),
+(5, 'admin', 'admin@wms.com', '$2y$10$QYYg6BNTNpNYxF3BbVLuceaTOBA2wyhIttNeLDcwsorIyM3fxEiI2', '2026-02-25 13:56:17', '2026-02-25 09:19:55');
 
 --
 -- Indexes for dumped tables
@@ -196,6 +220,15 @@ ALTER TABLE `packing_list_items`
   ADD KEY `idx_mpl_id` (`mpl_id`);
 
 --
+-- Indexes for table `shipped_items`
+--
+ALTER TABLE `shipped_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_order_id` (`order_id`),
+  ADD KEY `idx_sku` (`sku`),
+  ADD KEY `idx_shipped_at` (`shipped_at`);
+
+--
 -- Indexes for table `sku`
 --
 ALTER TABLE `sku`
@@ -208,8 +241,7 @@ ALTER TABLE `sku`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`);
+  ADD UNIQUE KEY `username` (`username`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -237,7 +269,7 @@ ALTER TABLE `order_items`
 -- AUTO_INCREMENT for table `packing_list`
 --
 ALTER TABLE `packing_list`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `packing_list_items`
@@ -246,16 +278,22 @@ ALTER TABLE `packing_list_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `shipped_items`
+--
+ALTER TABLE `shipped_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `sku`
 --
 ALTER TABLE `sku`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- Constraints for dumped tables

@@ -6,7 +6,19 @@ require_once '../../db_connect.php';
 require_once '../../auth.php';
 
 // Load environment config
-$env = parse_ini_file(__DIR__ . '/../../.env');
+$env_path = __DIR__ . '/../../.env';
+if (!file_exists($env_path)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration error', 'details' => '.env file not found']);
+    exit;
+}
+$env = parse_ini_file($env_path);
+
+if (!isset($env['X-API-KEY'])) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration error', 'details' => 'X-API-KEY not found in .env']);
+    exit;
+}
 
 // Set JSON response header
 header('Content-Type: application/json');
