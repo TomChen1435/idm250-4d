@@ -65,52 +65,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             // Send confirmation callback to CMS
             $callback_data = [
-                'mpl_number' => $mpl['mpl_number'],
-                'status' => 'confirmed',
-                'confirmed_at' => date('Y-m-d H:i:s'),
-                'confirmed_by' => $username,
-                'items' => array_map(function($item) {
-                    return [
-                        'sku' => $item['sku'],
-                        'quantity' => (int)$item['quantity']
-                    ];
-                }, $items)
+                'action' => 'confirm',
+                'reference_number' => $mpl['mpl_number']
             ];
             
             // TODO: Replace with actual CMS callback URL
-            $cms_callback_url = 'https://cms.example.com/api/mpl/confirmation';
+            $cms_callback_url = 'https://cms.example.com/api/v1/mpls.php';
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
-            $message = ' MPL confirmed and inventory updated! Callback sent to CMS.';
+            $message = '✅ MPL confirmed and inventory updated! Callback sent to CMS.';
             
         } catch (Exception $e) {
             $mysqli->rollback();
-            $message = ' Error confirming MPL: ' . $e->getMessage();
+            $message = '❌ Error confirming MPL: ' . $e->getMessage();
         }
         
     } elseif ($_POST['action'] === 'delete') {
         $id = (int) $_POST['id'];
         $mysqli->query("DELETE FROM packing_list_items WHERE mpl_id = $id");
         $ok = $mysqli->query("DELETE FROM packing_list WHERE id = $id");
-        $message = $ok ? ' Packing list deleted!' : ' Error: ' . $mysqli->error;
+        $message = $ok ? '✅ Packing list deleted!' : '❌ Error: ' . $mysqli->error;
     }
 }
 
 // Helper function to send callback to CMS
 function send_cms_callback($url, $data) {
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'X-API-Key: 4d-api-key-250' 
+    // Load API key from .env
+    $env = parse_ini_file(__DIR__ . '/.env');
+    $api_key = $env['X-API-KEY'] ?? '';
+    
+    // Build HTTP context
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => [
+                'Content-Type: application/json',
+                'X-API-Key: ' . $api_key
+            ],
+            'content' => json_encode($data),
+            'ignore_errors' => true
+        ]
     ]);
     
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // Send request
+    $response = file_get_contents($url, false, $context);
+    $http_code = isset($http_response_header[0]) ? intval(substr($http_response_header[0], 9, 3)) : 0;
     
     if ($http_code !== 200) {
         error_log("CMS callback failed: HTTP $http_code - $response");
