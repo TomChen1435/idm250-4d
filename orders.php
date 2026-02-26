@@ -6,6 +6,132 @@ require_login();
 
 $message = '';
 $username = $_SESSION['username'] ?? 'U';
+$user_id  = $_SESSION['user_id']  ?? 1;
+
+// ── Handle form submissions ───────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+
+    if ($_POST['action'] === 'ship') {
+        $id = (int) $_POST['id'];
+        
+        // Start transaction
+        $mysqli->begin_transaction();
+        
+        try {
+            // Get order details
+            $order_result = $mysqli->query("SELECT * FROM orders WHERE id = $id");
+            $order = $order_result->fetch_assoc();
+            
+            if (!$order) {
+                throw new Exception('Order not found');
+            }
+            
+            // Get all items in this order
+            $items_result = $mysqli->query("
+                SELECT oi.*, s.sku
+                FROM order_items oi
+                JOIN sku s ON oi.sku_id = s.id
+                WHERE oi.order_id = $id
+            ");
+            $items = $items_result->fetch_all(MYSQLI_ASSOC);
+            
+            // Remove quantities from inventory
+            foreach ($items as $item) {
+                $sku = $mysqli->real_escape_string($item['sku']);
+                $qty = (int)$item['quantity'];
+                
+                // Check if enough inventory available
+                $inv_check = $mysqli->query("SELECT quantity_available FROM inventory WHERE sku = '$sku'");
+                
+                if (!$inv_check || $inv_check->num_rows === 0) {
+                    throw new Exception("SKU $sku not found in inventory");
+                }
+                
+                $inv_row = $inv_check->fetch_assoc();
+                if ($inv_row['quantity_available'] < $qty) {
+                    throw new Exception("Insufficient inventory for SKU $sku (need $qty, have {$inv_row['quantity_available']})");
+                }
+                
+                // Deduct from inventory
+                $mysqli->query("UPDATE inventory 
+                               SET quantity_available = quantity_available - $qty,
+                                   last_updated = NOW()
+                               WHERE sku = '$sku'");
+            }
+            
+            // Update order status to shipped
+            $mysqli->query("UPDATE orders 
+                           SET status = 'shipped',
+                               time_shipped = NOW()
+                           WHERE id = $id");
+            
+            // Add to shipped history
+            foreach ($items as $item) {
+                $sku = $mysqli->real_escape_string($item['sku']);
+                $qty = (int)$item['quantity'];
+                $order_number = $mysqli->real_escape_string($order['order_number']);
+                $customer = $mysqli->real_escape_string($order['customer_name']);
+                
+                $mysqli->query("INSERT INTO shipped_items (order_id, order_number, sku, quantity, customer_name, shipped_at)
+                               VALUES ($id, '$order_number', '$sku', $qty, '$customer', NOW())");
+            }
+            
+            // Send shipment callback to CMS
+            $callback_data = [
+                'action' => 'ship',
+                'order_number' => $order['order_number'],
+                'shipped_at' => date('Y-m-d')
+            ];
+            
+            // Mock CMS callback URL for testing
+            $cms_callback_url = 'http://localhost:8888/api/mock_cms_orders.php';
+            send_cms_callback($cms_callback_url, $callback_data);
+            
+            $mysqli->commit();
+            $message = '✅ Order shipped! Inventory updated and callback sent to CMS.';
+            
+        } catch (Exception $e) {
+            $mysqli->rollback();
+            $message = '❌ Error shipping order: ' . $e->getMessage();
+        }
+        
+    } elseif ($_POST['action'] === 'delete') {
+        $id = (int) $_POST['id'];
+        $mysqli->query("DELETE FROM order_items WHERE order_id = $id");
+        $ok = $mysqli->query("DELETE FROM orders WHERE id = $id");
+        $message = $ok ? '✅ Order deleted!' : '❌ Error: ' . $mysqli->error;
+    }
+}
+
+// Helper function to send callback to CMS
+function send_cms_callback($url, $data) {
+    // Load API key from .env
+    $env = parse_ini_file(__DIR__ . '/.env');
+    $api_key = $env['X-API-KEY'] ?? '';
+    
+    // Build HTTP context
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => [
+                'Content-Type: application/json',
+                'X-API-Key: ' . $api_key
+            ],
+            'content' => json_encode($data),
+            'ignore_errors' => true
+        ]
+    ]);
+    
+    // Send request
+    $response = file_get_contents($url, false, $context);
+    $http_code = isset($http_response_header[0]) ? intval(substr($http_response_header[0], 9, 3)) : 0;
+    
+    if ($http_code !== 200) {
+        error_log("CMS callback failed: HTTP $http_code - $response");
+    }
+    
+    return $http_code === 200;
+}
 
 // Stats
 $total_orders = $mysqli->query("SELECT COUNT(*) AS total FROM orders")->fetch_assoc()['total'] ?? 0;
@@ -53,16 +179,18 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="inventory.php" class="nav-item">
                 <p>Current Inventory</p>
             </a>
-            <a href="orders.php" class="nav-item active">
-                <p>Orders</p>
-            </a>
-          
-            <a href="shipped.php" class="nav-item">
-                <p>Shipped</p>
-            </a>
+
             <a href="mpl.php" class="nav-item">
                 <p>MPL</p>
             </a>
+
+            <a href="orders.php" class="nav-item active">
+                <p>Orders</p>
+            </a>
+            <a href="shipped.php" class="nav-item">
+                <p>Shipped Items</p>
+            </a>
+            
         </nav>
         <div class="logout">
             <a href="logout.php" class="logout-btn">
@@ -75,8 +203,6 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <button class="icon-btn">🔔</button>
-                <button class="icon-btn">⚙️</button>
                 <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
@@ -84,7 +210,7 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <main class="content">
             <div class="breadcrumb">Warehouse / Orders</div>
             <h1 class="page-title">Order Management</h1>
-            <p class="page-subtitle">Track and manage all customer orders</p>
+            <p class="page-subtitle">Receive orders from CMS and ship to update inventory</p>
 
             <?php if ($message): ?>
                 <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
@@ -127,10 +253,6 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <option value="shipped"   <?= $status_filter === 'shipped'   ? 'selected' : '' ?>>Shipped</option>
                     <option value="cancelled" <?= $status_filter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                 </select>
-
-                <button class="btn-primary" onclick="openOrderModal()" style="margin-left:auto;">
-                    + New Order
-                </button>
             </div>
 
             <!-- Table -->
@@ -154,7 +276,7 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                             <td colspan="8">
                                 <div class="empty-state">
                                     <div style="font-size:48px;">📋</div>
-                                    <p>No orders yet. Create your first order above.</p>
+                                    <p>No orders yet. Orders will appear here when received from CMS.</p>
                                 </div>
                             </td>
                         </tr>
@@ -182,8 +304,12 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                             <td class="date-cell"><?= $o['time_shipped'] ? date('M d, Y', strtotime($o['time_shipped'])) : '—' ?></td>
                             <td>
                                 <div class="action-group">
-                                    <a href="order-items.php?order_id=<?= $o['id'] ?>" class="edit-btn">🧾 Items</a>
-                                    <button class="edit-btn" onclick='openEditOrder(<?= htmlspecialchars(json_encode($o), ENT_QUOTES) ?>)'>✏️ Edit</button>
+                                    <a href="order-items.php?order_id=<?= $o['id'] ?>" class="edit-btn">🧾 View Items</a>
+                                    <?php if ($status === 'pending' || $status === 'processing'): ?>
+                                        <button class="btn-primary" style="padding:6px 12px; font-size:13px;" onclick="shipOrder(<?= $o['id'] ?>)">
+                                            📦 Ship Order
+                                        </button>
+                                    <?php endif; ?>
                                     <button class="delete-btn" onclick="deleteOrder(<?= $o['id'] ?>)">🗑️</button>
                                 </div>
                             </td>
@@ -198,50 +324,32 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <footer class="footer">© 2026 4D Warehouse System</footer>
     </div>
 
-    <!-- Add / Edit Modal -->
-    <div id="orderModal" class="modal">
-        <div class="modal-content">
-            <h2 class="modal-header" id="orderModalTitle">New Order</h2>
-            <form method="POST">
-                <input type="hidden" name="action" id="orderAction" value="add">
-                <input type="hidden" name="id"     id="orderId">
-
-                <div class="form-group">
-                    <label class="form-label">Order Number</label>
-                    <input type="text" name="order_number" id="orderNumber" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Customer Name</label>
-                    <input type="text" name="customer_name" id="customerName" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Address</label>
-                    <textarea name="address" id="orderAddress" class="form-textarea"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select name="status" id="orderStatus" class="form-input">
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Save Order</button>
-                    <button type="button" class="btn-secondary" onclick="closeOrderModal()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Ship form -->
+    <form id="shipOrderForm" method="POST" style="display:none;">
+        <input type="hidden" name="action" value="ship">
+        <input type="hidden" name="id" id="shipOrderId">
+    </form>
 
     <!-- Delete form -->
     <form id="deleteOrderForm" method="POST" style="display:none;">
         <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="id"     id="deleteOrderId">
+        <input type="hidden" name="id" id="deleteOrderId">
     </form>
 
-    <script src="js/app.js"></script>
+    <script>
+        function shipOrder(id) {
+            if (confirm('Ship this order? This will deduct items from inventory and send a shipment callback to CMS.')) {
+                document.getElementById('shipOrderId').value = id;
+                document.getElementById('shipOrderForm').submit();
+            }
+        }
+
+        function deleteOrder(id) {
+            if (confirm('Are you sure you want to delete this order?')) {
+                document.getElementById('deleteOrderId').value = id;
+                document.getElementById('deleteOrderForm').submit();
+            }
+        }
+    </script>
 </body>
 </html>
