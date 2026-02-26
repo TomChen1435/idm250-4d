@@ -72,8 +72,7 @@ $total_quantity = $mysqli->query("SELECT SUM(quantity) AS total FROM shipped_ite
         <header class="header">
             <div></div>
             <div class="header-right">
-                <button class="icon-btn">🔔</button>
-                <button class="icon-btn">⚙️</button>
+             
                 <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>

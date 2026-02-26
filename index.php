@@ -106,8 +106,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <button class="icon-btn">🔔</button>
-                <button class="icon-btn">⚙️</button>
+
                 <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
