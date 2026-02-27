@@ -28,9 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             // Get all items in this order
             $items_result = $mysqli->query("
-                SELECT oi.*, s.sku
+                SELECT oi.*, oi.sku
                 FROM order_items oi
-                JOIN sku s ON oi.sku_id = s.id
                 WHERE oi.order_id = $id
             ");
             $items = $items_result->fetch_all(MYSQLI_ASSOC);

@@ -27,12 +27,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             // Get all items in this MPL
-            $items_result = $mysqli->query("
-                SELECT pli.*, s.sku
-                FROM packing_list_items pli
-                JOIN sku s ON pli.sku_id = s.id
-                WHERE pli.mpl_id = $id
-            ");
+            // First check which column exists in packing_list_items
+            $columns_check = $mysqli->query("SHOW COLUMNS FROM packing_list_items LIKE 'sku%'");
+            $has_sku_id = false;
+            $has_sku = false;
+            
+            while ($col = $columns_check->fetch_assoc()) {
+                if ($col['Field'] === 'sku_id') $has_sku_id = true;
+                if ($col['Field'] === 'sku') $has_sku = true;
+            }
+            
+            // Build query based on table structure
+            if ($has_sku_id) {
+                $items_result = $mysqli->query("
+                    SELECT pli.*, s.sku
+                    FROM packing_list_items pli
+                    JOIN sku s ON pli.sku_id = s.id
+                    WHERE pli.mpl_id = $id
+                ");
+            } else {
+                $items_result = $mysqli->query("
+                    SELECT pli.*, pli.sku
+                    FROM packing_list_items pli
+                    WHERE pli.mpl_id = $id
+                ");
+            }
             $items = $items_result->fetch_all(MYSQLI_ASSOC);
             
             // Add quantities to inventory

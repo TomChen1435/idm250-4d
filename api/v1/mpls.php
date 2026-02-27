@@ -1,6 +1,5 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
 
 define('API_REQUEST', true);
 require_once '../../db_connect.php';
@@ -115,19 +114,20 @@ try {
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $description = $details['description'] ?? '';
-                $uom         = $details['uom'] ?? '';
-                $pieces      = $details['pieces'] ?? 0;
-                $length      = $details['length'] ?? 0;
-                $width       = $details['width'] ?? 0;
-                $height      = $details['height'] ?? 0;
-                $weight      = $details['weight'] ?? 0;
-                $ficha       = $details['ficha'] ?? 0;
-
-                $insert_sku->bind_param(
-                    'ssidddddi',
+                
+                // Store all values in variables for bind_param
+                $desc = $details['description'] ?? '';
+                $uom = $details['uom'] ?? '';
+                $pieces = intval($details['pieces'] ?? 0);
+                $length = floatval($details['length'] ?? 0);
+                $width = floatval($details['width'] ?? 0);
+                $height = floatval($details['height'] ?? 0);
+                $weight = floatval($details['weight'] ?? 0);
+                $ficha = intval($details['ficha'] ?? 0);
+                
+                $insert_sku->bind_param('ssidddddi',
                     $sku,
-                    $description,
+                    $desc,
                     $uom,
                     $pieces,
                     $length,
@@ -136,24 +136,19 @@ try {
                     $weight,
                     $ficha
                 );
-
                 $insert_sku->execute();
-                $sku_id = $mysqli->insert_id;
             } else {
                 $missing_skus[] = $sku;
                 continue;
             }
-        } else {
-            $sku_row = $sku_result->fetch_assoc();
-            $sku_id = $sku_row['id'];
         }
         
-        // Insert packing list item
-
-        $item_stmt = $mysqli->prepare("
-        INSERT INTO packing_list_items (mpl_id, sku, quantity_expected, quantity_received, status, created_at) 
-                                       VALUES (?, ?, ?, 0, 'pending', NOW())");
-        $item_stmt->bind_param('iii', $mpl_id, $sku_id, $quantity);
+        // Insert packing list item with SKU code (not sku_id)
+        // Store quantity_received in a variable
+        $qty_received = 0;
+        $item_stmt = $mysqli->prepare("INSERT INTO packing_list_items (mpl_id, sku, quantity_expected, quantity_received, status, created_at) 
+                                       VALUES (?, ?, ?, ?, 'pending', NOW())");
+        $item_stmt->bind_param('isii', $mpl_id, $sku, $quantity, $qty_received);
         $item_stmt->execute();
     }
     

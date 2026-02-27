@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test - Debug Mode</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; }
+        #result { background: #f5f5f5; padding: 15px; margin-top: 20px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+        .debug { background: #fff3cd; color: #856404; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Test - Debug Mode</h1>
+    <button onclick="testMPL()">📦 Send Test MPL</button>
+    
+    <h3>Debug Info:</h3>
+    <div id="debug" class="debug">Click button to see debug info...</div>
+    
+    <h3>Result:</h3>
+    <div id="result">No test run yet</div>
+
+    <script>
+        async function testMPL() {
+            document.getElementById('result').textContent = '⏳ Sending...';
+            
+            const data = {
+                mpl_number: "MPL-TEST-001",
+                items: [{
+                    sku: "TEST-SKU-001",
+                    quantity: 100,
+                    sku_details: {
+                        description: "Test Product",
+                        uom: "PALLET",
+                        pieces: 50,
+                        length: 48.0,
+                        width: 40.0,
+                        height: 50.0,
+                        weight: 1200.0,
+                        ficha: 12345
+                    }
+                }]
+            };
+
+            try {
+                const response = await fetch('http://localhost:8888/api/v1/mpls.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': '4d-api-key-250'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                // Get raw text
+                const rawText = await response.text();
+                
+                // Show debug info
+                let debugInfo = 'URL: http://localhost:8888/api/v1/mpls.php\n';
+                debugInfo += 'Status: ' + response.status + ' ' + response.statusText + '\n';
+                debugInfo += 'Content-Type: ' + response.headers.get('content-type') + '\n\n';
+                debugInfo += 'RAW RESPONSE:\n' + rawText;
+                
+                document.getElementById('debug').textContent = debugInfo;
+
+                // Try to parse
+                if (rawText.trim() === '') {
+                    document.getElementById('result').textContent = '❌ ERROR: Server returned empty response';
+                } else {
+                    try {
+                        const result = JSON.parse(rawText);
+                        document.getElementById('result').textContent = 'SUCCESS:\n' + JSON.stringify(result, null, 2);
+                    } catch (e) {
+                        document.getElementById('result').textContent = '❌ ERROR: Response is not valid JSON\n\nParsing error: ' + e.message;
+                    }
+                }
+                
+            } catch (error) {
+                document.getElementById('debug').textContent = 'FETCH ERROR: ' + error.message;
+                document.getElementById('result').textContent = '❌ Network error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

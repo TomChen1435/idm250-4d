@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Feb 26, 2026 at 08:24 PM
+-- Generation Time: Feb 27, 2026 at 01:33 AM
 -- Server version: 5.7.24
 -- PHP Version: 8.3.1
 
@@ -82,6 +82,13 @@ CREATE TABLE `packing_list` (
   `confirmed_by_user_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `packing_list`
+--
+
+INSERT INTO `packing_list` (`id`, `mpl_number`, `status`, `created_at`, `confirmed_at`, `confirmed_by_user_id`) VALUES
+(16, 'MPL-TEST-001', 'pending', '2026-02-26 21:01:47', NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -97,6 +104,13 @@ CREATE TABLE `packing_list_items` (
   `status` enum('pending','received','partial') DEFAULT 'pending',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `packing_list_items`
+--
+
+INSERT INTO `packing_list_items` (`id`, `mpl_id`, `sku`, `quantity_expected`, `quantity_received`, `status`, `created_at`) VALUES
+(1, 16, '16', 100, 0, 'pending', '2026-02-26 21:01:47');
 
 -- --------------------------------------------------------
 
@@ -150,7 +164,8 @@ INSERT INTO `sku` (`id`, `ficha`, `sku`, `description`, `uom`, `pieces`, `length
 (10, 568, '1720832-0612', 'SOUTHERN PINE PT 4X4X12FT GC', 'BUNDLE', 130, '144', '44', '48', '5120.00'),
 (11, 821, '1720860-0528', 'ASH 4/4 FAS KD 9FT', 'PALLET', 125, '108', '48', '38', '3400.00'),
 (12, 822, '1720860-0529', 'ASH 4/4 FAS KD 9FT', 'PALLET', 126, '144', '48', '40', '4000.00'),
-(13, 823, '1720860-0530', 'ASH 4/4 FAS KD 9FT', 'PALLET', 127, '120', '36', '30', '2400.00');
+(13, 823, '1720860-0530', 'ASH 4/4 FAS KD 9FT', 'PALLET', 127, '120', '36', '30', '2400.00'),
+(16, 12345, 'TEST-SKU-001', 'Test Product', '0', 50, '48', '40', '50', '1200.00');
 
 -- --------------------------------------------------------
 
@@ -269,13 +284,13 @@ ALTER TABLE `order_items`
 -- AUTO_INCREMENT for table `packing_list`
 --
 ALTER TABLE `packing_list`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `packing_list_items`
 --
 ALTER TABLE `packing_list_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `shipped_items`
@@ -287,7 +302,7 @@ ALTER TABLE `shipped_items`
 -- AUTO_INCREMENT for table `sku`
 --
 ALTER TABLE `sku`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `users`

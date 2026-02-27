@@ -173,13 +173,7 @@ $total_quantity = $mysqli->query("SELECT SUM(quantity) AS total FROM shipped_ite
                 </table>
             </div>
 
-            <!-- Info Box -->
-            <div style="margin-top: 24px; padding: 16px; background: #F3F4F6; border-left: 4px solid #6B7280; border-radius: 8px;">
-                <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.5;">
-                    <strong>ℹ️ About Shipped Items:</strong><br>
-                    This is a permanent audit trail of all shipments. Records are automatically created when orders are shipped and cannot be edited or deleted.
-                </p>
-            </div>
+            
         </main>
 
         <footer class="footer">© 2026 4D Warehouse Management System</footer>
