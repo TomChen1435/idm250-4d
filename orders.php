@@ -26,9 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('Order not found');
             }
             
-            // Get all items in this order
+            // Get all items in this order - use 'ordered' column
             $items_result = $mysqli->query("
-                SELECT oi.*, oi.sku
+                SELECT oi.*, oi.sku, oi.ordered as quantity
                 FROM order_items oi
                 WHERE oi.order_id = $id
             ");
@@ -87,18 +87,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
-            $message = '✅ Order shipped! Inventory updated and callback sent to CMS.';
+            $message = 'Success: Order shipped! Inventory updated and callback sent to CMS.';
             
         } catch (Exception $e) {
             $mysqli->rollback();
-            $message = '❌ Error shipping order: ' . $e->getMessage();
+            $message = 'Error shipping order: ' . $e->getMessage();
         }
         
     } elseif ($_POST['action'] === 'delete') {
         $id = (int) $_POST['id'];
         $mysqli->query("DELETE FROM order_items WHERE order_id = $id");
         $ok = $mysqli->query("DELETE FROM orders WHERE id = $id");
-        $message = $ok ? '✅ Order deleted!' : '❌ Error: ' . $mysqli->error;
+        $message = $ok ? 'Success: Order deleted!' : 'Error: ' . $mysqli->error;
     }
 }
 
@@ -212,7 +212,7 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <p class="page-subtitle">Receive orders from CMS and ship to update inventory</p>
 
             <?php if ($message): ?>
-                <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
+                <div class="message <?= str_contains($message, 'Success') ? 'success' : 'error' ?>">
                     <?= htmlspecialchars($message) ?>
                 </div>
             <?php endif; ?>
@@ -303,13 +303,13 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                             <td class="date-cell"><?= $o['time_shipped'] ? date('M d, Y', strtotime($o['time_shipped'])) : '—' ?></td>
                             <td>
                                 <div class="action-group">
-                                    <a href="order-items.php?order_id=<?= $o['id'] ?>" class="edit-btn">🧾 View Items</a>
+                                    <a href="order-items.php?order_id=<?= $o['id'] ?>" class="edit-btn">View Items</a>
                                     <?php if ($status === 'pending' || $status === 'processing'): ?>
                                         <button class="btn-primary" style="padding:6px 12px; font-size:13px;" onclick="shipOrder(<?= $o['id'] ?>)">
-                                            📦 Ship Order
+                                            Ship Order
                                         </button>
                                     <?php endif; ?>
-                                    <button class="delete-btn" onclick="deleteOrder(<?= $o['id'] ?>)">🗑️</button>
+                                    <button class="delete-btn" onclick="deleteOrder(<?= $o['id'] ?>)">Delete</button>
                                 </div>
                             </td>
                         </tr>

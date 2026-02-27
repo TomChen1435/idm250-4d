@@ -129,9 +129,9 @@ try {
             }
         }
         
-        // Insert order item with SKU code (not sku_id)
-        $item_stmt = $mysqli->prepare("INSERT INTO order_items (order_id, sku, quantity, created_at) 
-                                       VALUES (?, ?, ?, NOW())");
+        // Insert order item with SKU code - using 'ordered' column
+        $item_stmt = $mysqli->prepare("INSERT INTO order_items (order_id, sku, ordered, shipped, created_at) 
+                                       VALUES (?, ?, ?, 0, NOW())");
         $item_stmt->bind_param('isi', $order_id, $sku, $quantity);
         $item_stmt->execute();
     }

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Feb 27, 2026 at 01:33 AM
+-- Generation Time: Feb 27, 2026 at 05:25 AM
 -- Server version: 5.7.24
 -- PHP Version: 8.3.1
 
@@ -35,6 +35,14 @@ CREATE TABLE `inventory` (
   `last_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `inventory`
+--
+
+INSERT INTO `inventory` (`id`, `sku`, `quantity_available`, `quantity_reserved`, `last_updated`) VALUES
+(6, 'TEST-SKU-001', 0, 0, '2026-02-27 04:19:46'),
+(7, 'YAAK-SKU-001', 0, 0, '2026-02-27 04:55:01');
+
 -- --------------------------------------------------------
 
 --
@@ -52,6 +60,13 @@ CREATE TABLE `orders` (
   `status` enum('pending','processing','shipped','cancelled') DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `orders`
+--
+
+INSERT INTO `orders` (`id`, `order_number`, `customer_name`, `total_items`, `address`, `time_created`, `time_shipped`, `status`) VALUES
+(2, 'ORD-YAAK-001', 'Yaak Test Customer', 0, '123 Test Street, Philadelphia, PA 19103', '2026-02-27 05:05:49', NULL, 'pending');
+
 -- --------------------------------------------------------
 
 --
@@ -66,6 +81,13 @@ CREATE TABLE `order_items` (
   `shipped` int(11) DEFAULT '0',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `order_items`
+--
+
+INSERT INTO `order_items` (`id`, `order_id`, `sku`, `ordered`, `shipped`, `created_at`) VALUES
+(1, 2, 'YAAK-SKU-001', 30, 0, '2026-02-27 05:05:49');
 
 -- --------------------------------------------------------
 
@@ -87,7 +109,8 @@ CREATE TABLE `packing_list` (
 --
 
 INSERT INTO `packing_list` (`id`, `mpl_number`, `status`, `created_at`, `confirmed_at`, `confirmed_by_user_id`) VALUES
-(16, 'MPL-TEST-001', 'pending', '2026-02-26 21:01:47', NULL, NULL);
+(22, 'MPL-TEST-001', 'confirmed', '2026-02-27 04:19:17', '2026-02-27 04:19:46', 5),
+(23, 'MPL-YAAK-001', 'confirmed', '2026-02-27 04:54:19', '2026-02-27 04:55:01', 5);
 
 -- --------------------------------------------------------
 
@@ -110,7 +133,8 @@ CREATE TABLE `packing_list_items` (
 --
 
 INSERT INTO `packing_list_items` (`id`, `mpl_id`, `sku`, `quantity_expected`, `quantity_received`, `status`, `created_at`) VALUES
-(1, 16, '16', 100, 0, 'pending', '2026-02-26 21:01:47');
+(2, 22, 'TEST-SKU-001', 100, 0, 'pending', '2026-02-27 04:19:17'),
+(3, 23, 'YAAK-SKU-001', 150, 0, 'pending', '2026-02-27 04:54:19');
 
 -- --------------------------------------------------------
 
@@ -165,7 +189,8 @@ INSERT INTO `sku` (`id`, `ficha`, `sku`, `description`, `uom`, `pieces`, `length
 (11, 821, '1720860-0528', 'ASH 4/4 FAS KD 9FT', 'PALLET', 125, '108', '48', '38', '3400.00'),
 (12, 822, '1720860-0529', 'ASH 4/4 FAS KD 9FT', 'PALLET', 126, '144', '48', '40', '4000.00'),
 (13, 823, '1720860-0530', 'ASH 4/4 FAS KD 9FT', 'PALLET', 127, '120', '36', '30', '2400.00'),
-(16, 12345, 'TEST-SKU-001', 'Test Product', '0', 50, '48', '40', '50', '1200.00');
+(17, 12345, 'TEST-SKU-001', 'Test Product', '0', 50, '48', '40', '50', '1200.00'),
+(18, 99001, 'YAAK-SKU-001', 'Yaak Test Product', '0', 60, '48', '40', '52', '1500.00');
 
 -- --------------------------------------------------------
 
@@ -266,31 +291,31 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `inventory`
 --
 ALTER TABLE `inventory`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `packing_list`
 --
 ALTER TABLE `packing_list`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `packing_list_items`
 --
 ALTER TABLE `packing_list_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `shipped_items`
@@ -302,7 +327,7 @@ ALTER TABLE `shipped_items`
 -- AUTO_INCREMENT for table `sku`
 --
 ALTER TABLE `sku`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `users`
