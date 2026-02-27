@@ -12,8 +12,14 @@ X-API-Key: 4d-api-key-250
 
 ## Base URL
 
+**Production (Drexel Server):**
 ```
-https://your-wms-domain.com/api/v1
+https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1
+```
+
+**Local Development:**
+```
+http://localhost:8888/api/v1
 ```
 
 ---
@@ -21,6 +27,8 @@ https://your-wms-domain.com/api/v1
 ## Receiving MPL from CMS
 
 **Endpoint:** `POST /api/v1/mpls.php`
+
+**Full URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php`
 
 **Description:** CMS sends a new Master Packing List to the WMS. The MPL will be stored with status "pending" until warehouse staff confirms it.
 
@@ -103,11 +111,21 @@ X-API-Key: 4d-api-key-250
 }
 ```
 
+**Error - Unauthorized (401):**
+```json
+{
+  "error": "Unauthorized",
+  "details": "Invalid or missing API key"
+}
+```
+
 ---
 
 ## Receiving Order from CMS
 
 **Endpoint:** `POST /api/v1/orders.php`
+
+**Full URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php`
 
 **Description:** CMS sends a new customer order to the WMS. The order will be stored with status "pending" until warehouse staff ships it.
 
@@ -200,11 +218,19 @@ X-API-Key: 4d-api-key-250
 
 When warehouse staff confirms an MPL or ships an order, the WMS sends a callback notification to the CMS.
 
+**Note:** You need to provide your CMS callback endpoints and configure them in the WMS.
+
 ### MPL Confirmation Callback
 
-**Endpoint (CMS provides):** `POST https://cms.example.com/api/v1/mpls.php`
+**Endpoint (CMS provides):** `POST https://your-cms-domain.com/api/v1/mpls.php`
 
 **Triggered when:** Warehouse staff clicks "Confirm MPL" button in WMS UI
+
+**Headers Sent:**
+```
+Content-Type: application/json
+X-API-Key: 4d-api-key-250
+```
 
 **Payload:**
 ```json
@@ -224,9 +250,15 @@ When warehouse staff confirms an MPL or ships an order, the WMS sends a callback
 
 ### Order Shipment Callback
 
-**Endpoint (CMS provides):** `POST https://cms.example.com/api/v1/orders.php`
+**Endpoint (CMS provides):** `POST https://your-cms-domain.com/api/v1/orders.php`
 
 **Triggered when:** Warehouse staff clicks "Ship Order" button in WMS UI
+
+**Headers Sent:**
+```
+Content-Type: application/json
+X-API-Key: 4d-api-key-250
+```
 
 **Payload:**
 ```json
@@ -255,9 +287,9 @@ When warehouse staff confirms an MPL or ships an order, the WMS sends a callback
 | 201 | Created - Resource created successfully |
 | 400 | Bad Request - Invalid data or missing fields |
 | 401 | Unauthorized - Invalid or missing API key |
-| 405 | Method Not Allowed - Wrong HTTP method |
-| 409 | Conflict - Resource already exists |
-| 500 | Internal Server Error |
+| 405 | Method Not Allowed - Wrong HTTP method (use POST) |
+| 409 | Conflict - Resource already exists (duplicate MPL/Order number) |
+| 500 | Internal Server Error - Contact WMS administrator |
 
 ---
 
@@ -265,7 +297,7 @@ When warehouse staff confirms an MPL or ships an order, the WMS sends a callback
 
 ### Send MPL to WMS:
 ```bash
-curl -X POST https://your-wms-domain.com/api/v1/mpls.php \
+curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php \
   -H "Content-Type: application/json" \
   -H "X-API-Key: 4d-api-key-250" \
   -d '{
@@ -291,7 +323,7 @@ curl -X POST https://your-wms-domain.com/api/v1/mpls.php \
 
 ### Send Order to WMS:
 ```bash
-curl -X POST https://your-wms-domain.com/api/v1/orders.php \
+curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php \
   -H "Content-Type: application/json" \
   -H "X-API-Key: 4d-api-key-250" \
   -d '{
@@ -306,11 +338,44 @@ curl -X POST https://your-wms-domain.com/api/v1/orders.php \
 
 ---
 
+## WMS User Interface
+
+After sending MPLs and Orders via the API, warehouse staff can access the WMS interface to process them:
+
+**WMS Login:**
+```
+https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/login.php
+```
+
+**Workflow:**
+1. CMS sends MPL via API → appears in WMS as "Pending"
+2. Warehouse staff logs in → views MPL → clicks "Confirm MPL"
+3. Inventory is automatically increased
+4. WMS sends confirmation callback to CMS
+
+5. CMS sends Order via API → appears in WMS as "Pending"
+6. Warehouse staff views Order → clicks "Ship Order"
+7. Inventory is automatically decreased
+8. Shipment is logged in history
+9. WMS sends shipment callback to CMS
+
+---
+
 ## Integration Notes
 
 ### Auto-Creating SKUs
 
 If a SKU in an MPL doesn't exist in the WMS database, the WMS can automatically create it **if** `sku_details` is provided in the request. This allows seamless integration when the CMS creates new products.
+
+**Required fields in sku_details:**
+- `description` (string)
+- `uom` (string) - Unit of Measure (e.g., "PALLET", "BUNDLE", "BOX")
+- `pieces` (integer) - Pieces per unit
+- `length` (float) - Length in inches
+- `width` (float) - Width in inches
+- `height` (float) - Height in inches
+- `weight` (float) - Weight in pounds
+- `ficha` (integer) - Ficha number
 
 If `sku_details` is not provided and the SKU is missing, the API will return a 400 error listing the missing SKUs.
 
@@ -321,3 +386,42 @@ When receiving an order, the WMS checks if sufficient inventory exists for each 
 ### Transaction Safety
 
 Both endpoints use database transactions to ensure data consistency. If any step fails (e.g., missing SKU, database error), all changes are rolled back and an error response is returned.
+
+### Duplicate Prevention
+
+The API prevents duplicate MPLs and Orders by checking the `mpl_number` and `order_number` respectively. If a duplicate is detected, a 409 Conflict error is returned.
+
+---
+
+## Support & Contact
+
+For technical issues or questions about the API:
+
+**WMS Administrator:** Elly Tang  
+**Server:** Drexel University Web Server  
+**Database:** et556_db  
+
+**Important Files Location on Server:**
+- API Endpoints: `~/public_html/idm250-4d/api/v1/`
+- Configuration: `~/public_html/idm250-4d/.env`
+- Callback Logs: `~/public_html/idm250-4d/api/mpl_callbacks.log` and `order_callbacks.log`
+
+---
+
+## Quick Reference
+
+**Production API Endpoints:**
+```
+MPL:    https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php
+Orders: https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php
+```
+
+**API Key:**
+```
+4d-api-key-250
+```
+
+**WMS Interface:**
+```
+https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/login.php
+```

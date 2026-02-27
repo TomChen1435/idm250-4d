@@ -116,9 +116,6 @@ try {
             continue;
         }
         
-        $sku_row = $sku_result->fetch_assoc();
-        $sku_id = $sku_row['id'];
-        
         // Check inventory availability (warning only)
         $inv_stmt = $mysqli->prepare("SELECT quantity_available FROM inventory WHERE sku = ?");
         $inv_stmt->bind_param('s', $sku);
@@ -132,10 +129,10 @@ try {
             }
         }
         
-        // Insert order item
-        $item_stmt = $mysqli->prepare("INSERT INTO order_items (order_id, sku_id, quantity, created_at) 
-                                       VALUES (?, ?, ?, NOW())");
-        $item_stmt->bind_param('iii', $order_id, $sku_id, $quantity);
+        // Insert order item with SKU code - using 'ordered' column
+        $item_stmt = $mysqli->prepare("INSERT INTO order_items (order_id, sku, ordered, shipped, created_at) 
+                                       VALUES (?, ?, ?, 0, NOW())");
+        $item_stmt->bind_param('isi', $order_id, $sku, $quantity);
         $item_stmt->execute();
     }
     

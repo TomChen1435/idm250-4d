@@ -27,18 +27,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             // Get all items in this MPL
-            $items_result = $mysqli->query("
-                SELECT pli.*, s.sku
-                FROM packing_list_items pli
-                JOIN sku s ON pli.sku_id = s.id
-                WHERE pli.mpl_id = $id
-            ");
+            // First check which column exists in packing_list_items
+            $columns_check = $mysqli->query("SHOW COLUMNS FROM packing_list_items LIKE 'sku%'");
+            $has_sku_id = false;
+            $has_sku = false;
+            
+            while ($col = $columns_check->fetch_assoc()) {
+                if ($col['Field'] === 'sku_id') $has_sku_id = true;
+                if ($col['Field'] === 'sku') $has_sku = true;
+            }
+            
+            // Build query based on table structure
+            if ($has_sku_id) {
+                $items_result = $mysqli->query("
+                    SELECT pli.*, s.sku
+                    FROM packing_list_items pli
+                    JOIN sku s ON pli.sku_id = s.id
+                    WHERE pli.mpl_id = $id
+                ");
+            } else {
+                $items_result = $mysqli->query("
+                    SELECT pli.*, pli.sku
+                    FROM packing_list_items pli
+                    WHERE pli.mpl_id = $id
+                ");
+            }
             $items = $items_result->fetch_all(MYSQLI_ASSOC);
             
             // Add quantities to inventory
             foreach ($items as $item) {
                 $sku = $mysqli->real_escape_string($item['sku']);
-                $qty = (int)$item['quantity'];
+                $qty = (int)$item['quantity_expected']; // Use quantity_expected from packing_list_items
                 
                 // Check if inventory record exists
                 $inv_check = $mysqli->query("SELECT id, quantity_available FROM inventory WHERE sku = '$sku'");
@@ -74,18 +93,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
-            $message = '✅ MPL confirmed and inventory updated! Callback sent to CMS.';
+            $message = 'Success: MPL confirmed and inventory updated! Callback sent to CMS.';
             
         } catch (Exception $e) {
             $mysqli->rollback();
-            $message = '❌ Error confirming MPL: ' . $e->getMessage();
+            $message = 'Error confirming MPL: ' . $e->getMessage();
         }
         
     } elseif ($_POST['action'] === 'delete') {
         $id = (int) $_POST['id'];
         $mysqli->query("DELETE FROM packing_list_items WHERE mpl_id = $id");
         $ok = $mysqli->query("DELETE FROM packing_list WHERE id = $id");
-        $message = $ok ? '✅ Packing list deleted!' : '❌ Error: ' . $mysqli->error;
+        $message = $ok ? 'Success: Packing list deleted!' : 'Error: ' . $mysqli->error;
     }
 }
 
@@ -185,7 +204,7 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <p class="page-subtitle">Receive MPLs from CMS and confirm to update inventory</p>
 
             <?php if ($message): ?>
-                <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
+                <div class="message <?= str_contains($message, 'Success') ? 'success' : 'error' ?>">
                     <?= htmlspecialchars($message) ?>
                 </div>
             <?php endif; ?>
@@ -266,13 +285,13 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                             <td><?= htmlspecialchars($mpl['confirmed_by'] ?? '—') ?></td>
                             <td>
                                 <div class="action-group">
-                                    <a href="mpl-items.php?mpl_id=<?= $mpl['id'] ?>" class="edit-btn">📋 View Items</a>
+                                    <a href="mpl-items.php?mpl_id=<?= $mpl['id'] ?>" class="edit-btn">View Items</a>
                                     <?php if ($status === 'pending'): ?>
                                         <button class="btn-primary" style="padding:6px 12px; font-size:13px;" onclick="confirmMPL(<?= $mpl['id'] ?>)">
-                                            ✅ Confirm MPL
+                                            Confirm MPL
                                         </button>
                                     <?php endif; ?>
-                                    <button class="delete-btn" onclick="deleteMPL(<?= $mpl['id'] ?>)">🗑️</button>
+                                    <button class="delete-btn" onclick="deleteMPL(<?= $mpl['id'] ?>)">Delete</button>
                                 </div>
                             </td>
                         </tr>
