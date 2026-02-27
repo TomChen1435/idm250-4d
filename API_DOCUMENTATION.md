@@ -13,14 +13,14 @@ X-API-Key: 4d-api-key-250
 ## Base URL
 
 ```
-https://your-wms-domain.com/api/v1
+https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1
 ```
 
 ---
 
 ## Receiving MPL from CMS
 
-**Endpoint:** `POST /api/v1/mpls.php`
+**Endpoint:** `POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php`
 
 **Description:** CMS sends a new Master Packing List to the WMS. The MPL will be stored with status "pending" until warehouse staff confirms it.
 
@@ -107,7 +107,7 @@ X-API-Key: 4d-api-key-250
 
 ## Receiving Order from CMS
 
-**Endpoint:** `POST /api/v1/orders.php`
+**Endpoint:** `POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php`
 
 **Description:** CMS sends a new customer order to the WMS. The order will be stored with status "pending" until warehouse staff ships it.
 

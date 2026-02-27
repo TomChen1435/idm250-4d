@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Add quantities to inventory
             foreach ($items as $item) {
                 $sku = $mysqli->real_escape_string($item['sku']);
-                $qty = (int)$item['quantity'];
+                $qty = (int)$item['quantity_expected']; // Use quantity_expected from packing_list_items
                 
                 // Check if inventory record exists
                 $inv_check = $mysqli->query("SELECT id, quantity_available FROM inventory WHERE sku = '$sku'");
