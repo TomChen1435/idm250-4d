@@ -82,6 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                confirmed_by_user_id = $user_id
                            WHERE id = $id");
             
+            // Update all line items status to 'received' and set quantity_received
+            $mysqli->query("UPDATE packing_list_items 
+                           SET status = 'received',
+                               quantity_received = quantity_expected
+                           WHERE mpl_id = $id");
+            
             // Send confirmation callback to CMS
             $callback_data = [
                 'action' => 'confirm',

@@ -168,7 +168,7 @@ try {
         $sku_result = $sku_stmt->get_result();
         
         if ($sku_result->num_rows === 0) {
-            // SKU doesn't exist - check if we have details to auto-create
+            // SKU doesn't exist - create it if we have details
             if ($item_data['sku_details']) {
                 $details = $item_data['sku_details'];
                 
@@ -185,21 +185,40 @@ try {
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $insert_sku->bind_param('ssidddddi',
-                    $sku,
-                    $description,
-                    $uom,
-                    $pieces,
-                    $length,
-                    $width,
-                    $height,
-                    $weight,
-                    $ficha
-                );
+                $insert_sku->bind_param('ssidddddi', $sku, $description, $uom, $pieces, $length, $width, $height, $weight, $ficha);
                 $insert_sku->execute();
             } else {
                 $missing_skus[] = $sku;
                 continue;
+            }
+        } else {
+            // SKU exists - update it if we have new details
+            if ($item_data['sku_details']) {
+                $details = $item_data['sku_details'];
+                
+                // Map CMS field names to WMS field names
+                $description = $details['description'] ?? '';
+                $uom = $details['uom'] ?? $details['uom_primary'] ?? '';
+                $pieces = intval($details['pieces'] ?? 0);
+                $length = floatval($details['length'] ?? $details['length_inches'] ?? 0);
+                $width = floatval($details['width'] ?? $details['width_inches'] ?? 0);
+                $height = floatval($details['height'] ?? $details['height_inches'] ?? 0);
+                $weight = floatval($details['weight'] ?? $details['weight_lbs'] ?? 0);
+                $ficha = intval($details['ficha'] ?? 0);
+                
+                // Update existing SKU with new details
+                $update_sku = $mysqli->prepare("UPDATE sku 
+                                                SET description = ?, 
+                                                    uom = ?, 
+                                                    pieces = ?, 
+                                                    length = ?, 
+                                                    width = ?, 
+                                                    height = ?, 
+                                                    weight = ?, 
+                                                    ficha = ?
+                                                WHERE sku = ?");
+                $update_sku->bind_param('sidddddis', $description, $pieces, $length, $width, $height, $weight, $ficha, $uom, $sku);
+                $update_sku->execute();
             }
         }
         
