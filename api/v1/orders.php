@@ -50,17 +50,46 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Validate required fields
-$required_fields = ['order_number', 'customer_name', 'items'];
-foreach ($required_fields as $field) {
-    if (empty($data[$field])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Bad Request', 'details' => "Missing required field: $field"]);
-        exit;
-    }
+// Validate required fields - accept BOTH formats
+$order_number = null;
+$customer_name = null;
+$address = '';
+
+// Accept either 'order_number' from both
+if (!empty($data['order_number'])) {
+    $order_number = $data['order_number'];
+} else {
+    http_response_code(400);
+    echo json_encode(['error' => 'Bad Request', 'details' => 'Missing required field: order_number']);
+    exit;
 }
 
-if (!is_array($data['items']) || empty($data['items'])) {
+// Accept either 'customer_name' OR 'ship_to_company'
+if (!empty($data['customer_name'])) {
+    $customer_name = $data['customer_name'];
+} elseif (!empty($data['ship_to_company'])) {
+    $customer_name = $data['ship_to_company'];
+} else {
+    http_response_code(400);
+    echo json_encode(['error' => 'Bad Request', 'details' => 'Missing required field: customer_name or ship_to_company']);
+    exit;
+}
+
+// Build address from either single field OR separate fields
+if (!empty($data['address'])) {
+    $address = $data['address'];
+} else {
+    // Build from separate CMS fields
+    $parts = [];
+    if (!empty($data['ship_to_street'])) $parts[] = $data['ship_to_street'];
+    if (!empty($data['ship_to_city'])) $parts[] = $data['ship_to_city'];
+    if (!empty($data['ship_to_state'])) $parts[] = $data['ship_to_state'];
+    if (!empty($data['ship_to_zip'])) $parts[] = $data['ship_to_zip'];
+    $address = implode(', ', $parts);
+}
+
+// Validate items
+if (empty($data['items']) || !is_array($data['items'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Bad Request', 'details' => 'Items array is required and must not be empty']);
     exit;
@@ -83,13 +112,14 @@ if ($check_result->num_rows > 0) {
 $mysqli->begin_transaction();
 
 try {
-    // Create order header
-    $customer_name = $mysqli->real_escape_string($data['customer_name']);
-    $address = isset($data['address']) ? $mysqli->real_escape_string($data['address']) : '';
+    // Create order header - using mapped fields
+    $order_number_safe = $mysqli->real_escape_string($order_number);
+    $customer_name_safe = $mysqli->real_escape_string($customer_name);
+    $address_safe = $mysqli->real_escape_string($address);
     
     $stmt = $mysqli->prepare("INSERT INTO orders (order_number, customer_name, address, status, time_created) 
                              VALUES (?, ?, ?, 'pending', NOW())");
-    $stmt->bind_param('sss', $order_number, $customer_name, $address);
+    $stmt->bind_param('sss', $order_number_safe, $customer_name_safe, $address_safe);
     $stmt->execute();
     $order_id = $mysqli->insert_id;
     
@@ -154,8 +184,8 @@ try {
         'success' => true,
         'message' => 'Order received successfully',
         'order_id' => $order_id,
-        'order_number' => $data['order_number'],
-        'customer_name' => $data['customer_name'],
+        'order_number' => $order_number,
+        'customer_name' => $customer_name,
         'items_count' => count($data['items'])
     ];
     

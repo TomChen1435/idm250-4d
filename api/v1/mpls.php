@@ -50,17 +50,23 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Validate required fields
-$required_fields = ['mpl_number', 'items'];
-foreach ($required_fields as $field) {
-    if (empty($data[$field])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Bad Request', 'details' => "Missing required field: $field"]);
-        exit;
-    }
+// Validate required fields - accept BOTH formats
+$required_fields = ['items'];
+$mpl_number = null;
+
+// Accept either 'mpl_number' OR 'reference_number'
+if (!empty($data['mpl_number'])) {
+    $mpl_number = $data['mpl_number'];
+} elseif (!empty($data['reference_number'])) {
+    $mpl_number = $data['reference_number'];
+} else {
+    http_response_code(400);
+    echo json_encode(['error' => 'Bad Request', 'details' => 'Missing required field: mpl_number or reference_number']);
+    exit;
 }
 
-if (!is_array($data['items']) || empty($data['items'])) {
+// Validate items array
+if (empty($data['items']) || !is_array($data['items'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Bad Request', 'details' => 'Items array is required and must not be empty']);
     exit;
@@ -116,13 +122,14 @@ try {
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 
                 // Store all values in variables for bind_param
+                // Map CMS field names to WMS field names
                 $desc = $details['description'] ?? '';
-                $uom = $details['uom'] ?? '';
+                $uom = $details['uom'] ?? $details['uom_primary'] ?? '';  // Accept both
                 $pieces = intval($details['pieces'] ?? 0);
-                $length = floatval($details['length'] ?? 0);
-                $width = floatval($details['width'] ?? 0);
-                $height = floatval($details['height'] ?? 0);
-                $weight = floatval($details['weight'] ?? 0);
+                $length = floatval($details['length'] ?? $details['length_inches'] ?? 0);  // Accept both
+                $width = floatval($details['width'] ?? $details['width_inches'] ?? 0);
+                $height = floatval($details['height'] ?? $details['height_inches'] ?? 0);
+                $weight = floatval($details['weight'] ?? $details['weight_lbs'] ?? 0);
                 $ficha = intval($details['ficha'] ?? 0);
                 
                 $insert_sku->bind_param('ssidddddi',
