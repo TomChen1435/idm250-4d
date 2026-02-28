@@ -142,8 +142,39 @@ try {
         $sku_result = $sku_stmt->get_result();
         
         if ($sku_result->num_rows === 0) {
-            $missing_skus[] = $sku;
-            continue;
+            // SKU doesn't exist - check if we have details to auto-create
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
+                
+                // Map CMS field names to WMS field names
+                $description = $details['description'] ?? '';
+                $uom = $details['uom'] ?? $details['uom_primary'] ?? '';
+                $pieces = intval($details['pieces'] ?? 0);
+                $length = floatval($details['length'] ?? $details['length_inches'] ?? 0);
+                $width = floatval($details['width'] ?? $details['width_inches'] ?? 0);
+                $height = floatval($details['height'] ?? $details['height_inches'] ?? 0);
+                $weight = floatval($details['weight'] ?? $details['weight_lbs'] ?? 0);
+                $ficha = intval($details['ficha'] ?? 0);
+                
+                // Auto-create SKU
+                $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
+                                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $insert_sku->bind_param('ssidddddi',
+                    $sku,
+                    $description,
+                    $uom,
+                    $pieces,
+                    $length,
+                    $width,
+                    $height,
+                    $weight,
+                    $ficha
+                );
+                $insert_sku->execute();
+            } else {
+                $missing_skus[] = $sku;
+                continue;
+            }
         }
         
         // Check inventory availability (warning only)
