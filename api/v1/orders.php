@@ -123,17 +123,43 @@ try {
     $stmt->execute();
     $order_id = $mysqli->insert_id;
     
-    // Process items
+    // Process items - aggregate by SKU
     $missing_skus = [];
     $insufficient_inventory = [];
+    $sku_aggregation = [];  // Group items by SKU
     
+    // First pass: aggregate items by SKU and collect SKU details
     foreach ($data['items'] as $item) {
-        if (empty($item['sku']) || !isset($item['quantity'])) {
-            throw new Exception('Each item must have sku and quantity');
+        if (empty($item['sku'])) {
+            throw new Exception('Each item must have sku');
         }
         
         $sku = $mysqli->real_escape_string($item['sku']);
-        $quantity = intval($item['quantity']);
+        
+        // Initialize SKU entry if not exists
+        if (!isset($sku_aggregation[$sku])) {
+            $sku_aggregation[$sku] = [
+                'quantity' => 0,
+                'sku_details' => isset($item['sku_details']) ? $item['sku_details'] : null
+            ];
+        }
+        
+        // If quantity is provided, use it; otherwise count as 1 unit
+        if (isset($item['quantity'])) {
+            $sku_aggregation[$sku]['quantity'] += intval($item['quantity']);
+        } else {
+            $sku_aggregation[$sku]['quantity'] += 1;  // Each item = 1 unit
+        }
+        
+        // Keep sku_details if provided (use first occurrence)
+        if (!$sku_aggregation[$sku]['sku_details'] && isset($item['sku_details'])) {
+            $sku_aggregation[$sku]['sku_details'] = $item['sku_details'];
+        }
+    }
+    
+    // Second pass: process aggregated SKUs
+    foreach ($sku_aggregation as $sku => $item_data) {
+        $quantity = $item_data['quantity'];
         
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");
@@ -143,8 +169,8 @@ try {
         
         if ($sku_result->num_rows === 0) {
             // SKU doesn't exist - check if we have details to auto-create
-            if (isset($item['sku_details'])) {
-                $details = $item['sku_details'];
+            if ($item_data['sku_details']) {
+                $details = $item_data['sku_details'];
                 
                 // Map CMS field names to WMS field names
                 $description = $details['description'] ?? '';
