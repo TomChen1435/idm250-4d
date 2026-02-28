@@ -89,9 +89,13 @@ if ($check_result->num_rows > 0) {
 $mysqli->begin_transaction();
 
 try {
-    // Create MPL header
-    $stmt = $mysqli->prepare("INSERT INTO packing_list (mpl_number, status, created_at) VALUES (?, 'pending', NOW())");
-    $stmt->bind_param('s', $mpl_number);
+    // Create MPL header with trailer_number and expected_arrival
+    $trailer_number = isset($data['trailer_number']) ? $mysqli->real_escape_string($data['trailer_number']) : null;
+    $expected_arrival = isset($data['expected_arrival']) ? $mysqli->real_escape_string($data['expected_arrival']) : null;
+    
+    $stmt = $mysqli->prepare("INSERT INTO packing_list (mpl_number, trailer_number, expected_arrival, status, created_at) 
+                             VALUES (?, ?, ?, 'pending', NOW())");
+    $stmt->bind_param('sss', $mpl_number, $trailer_number, $expected_arrival);
     $stmt->execute();
     $mpl_id = $mysqli->insert_id;
     
