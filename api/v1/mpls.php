@@ -55,7 +55,7 @@ $required_fields = ['items'];
 $mpl_number = null;
 
 // Accept either 'mpl_number' OR 'reference_number'
-if (empty($data['mpl_number'])) {
+if (!empty($data['mpl_number'])) {
     $mpl_number = $data['mpl_number'];
 } elseif (!empty($data['reference_number'])) {
     $mpl_number = $data['reference_number'];
@@ -72,8 +72,7 @@ if (empty($data['items']) || !is_array($data['items'])) {
     exit;
 }
 
-// Check for duplicate MPL
-$mpl_number = $mysqli->real_escape_string($data['mpl_number']);
+// Check for duplicate MPL - use the already-set $mpl_number variable
 $check_stmt = $mysqli->prepare("SELECT id FROM packing_list WHERE mpl_number = ?");
 $check_stmt->bind_param('s', $mpl_number);
 $check_stmt->execute();
@@ -90,8 +89,8 @@ $mysqli->begin_transaction();
 
 try {
     // Create MPL header with trailer_number and expected_arrival
-    $trailer_number = isset($data['trailer_number']) ? $mysqli->real_escape_string($data['trailer_number']) : null;
-    $expected_arrival = isset($data['expected_arrival']) ? $mysqli->real_escape_string($data['expected_arrival']) : null;
+    $trailer_number = isset($data['trailer_number']) ? $data['trailer_number'] : null;
+    $expected_arrival = isset($data['expected_arrival']) ? $data['expected_arrival'] : null;
     
     $stmt = $mysqli->prepare("INSERT INTO packing_list (mpl_number, trailer_number, expected_arrival, status, created_at) 
                              VALUES (?, ?, ?, 'pending', NOW())");
@@ -99,11 +98,11 @@ try {
     $stmt->execute();
     $mpl_id = $mysqli->insert_id;
     
-    // Process items 
+    // Process items - aggregate by SKU
     $missing_skus = [];
-    $sku_aggregation = [];  
+    $sku_aggregation = [];  // Group items by SKU
     
-
+    // First pass: aggregate items by SKU and collect SKU details
     foreach ($data['items'] as $item) {
         if (empty($item['sku'])) {
             throw new Exception('Each item must have sku');

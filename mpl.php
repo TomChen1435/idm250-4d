@@ -88,8 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'reference_number' => $mpl['mpl_number']
             ];
             
-            // Mock CMS callback URL for testing
-            $cms_callback_url = 'http://localhost:8888/api/mock_cms_mpls.php';
+            // CMS callback URL
+            $cms_callback_url = 'https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/mpls.php';
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
