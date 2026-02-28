@@ -55,7 +55,7 @@ $required_fields = ['items'];
 $mpl_number = null;
 
 // Accept either 'mpl_number' OR 'reference_number'
-if (!empty($data['mpl_number'])) {
+if (empty($data['mpl_number'])) {
     $mpl_number = $data['mpl_number'];
 } elseif (!empty($data['reference_number'])) {
     $mpl_number = $data['reference_number'];
@@ -99,11 +99,11 @@ try {
     $stmt->execute();
     $mpl_id = $mysqli->insert_id;
     
-    // Process items - aggregate by SKU
+    // Process items 
     $missing_skus = [];
-    $sku_aggregation = [];  // Group items by SKU
+    $sku_aggregation = [];  
     
-    // First pass: aggregate items by SKU and collect SKU details
+
     foreach ($data['items'] as $item) {
         if (empty($item['sku'])) {
             throw new Exception('Each item must have sku');
