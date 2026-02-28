@@ -80,8 +80,17 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
                     <h1 class="page-title">Order: <?= htmlspecialchars($order['order_number']) ?></h1>
                     <p class="page-subtitle">
                         Customer: <strong><?= htmlspecialchars($order['customer_name']) ?></strong> | 
-                        Status: <span class="status-badge <?= $order['status'] === 'shipped' ? 'badge-in-stock' : 'badge-low' ?>">
-                            <?= ucfirst($order['status']) ?>
+                        Status: <?php
+                            $status = $order['status'] ?? 'pending';
+                            $badge_class = match($status) {
+                                'shipped' => 'badge-in-stock',
+                                'processing' => 'badge-processing',
+                                'cancelled' => 'badge-out',
+                                default => 'badge-low'
+                            };
+                        ?>
+                        <span class="status-badge <?= $badge_class ?>">
+                            <?= ucfirst($status) ?>
                         </span>
                     </p>
                 </div>
