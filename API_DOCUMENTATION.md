@@ -5,7 +5,7 @@
 All API requests require an API key in the `X-API-Key` header:
 
 ```
-X-API-Key: 4d-api-key-250
+X-API-Key: sir-4d-api-2026
 ```
 
 ---
@@ -37,7 +37,7 @@ http://localhost:8888/api/v1
 **Headers:**
 ```
 Content-Type: application/json
-X-API-Key: 4d-api-key-250
+X-API-Key: sir-4d-api-2026
 ```
 
 **Body:**
@@ -134,7 +134,7 @@ X-API-Key: 4d-api-key-250
 **Headers:**
 ```
 Content-Type: application/json
-X-API-Key: 4d-api-key-250
+X-API-Key: sir-4d-api-2026
 ```
 
 **Body:**
@@ -229,7 +229,7 @@ When warehouse staff confirms an MPL or ships an order, the WMS sends a callback
 **Headers Sent:**
 ```
 Content-Type: application/json
-X-API-Key: 4d-api-key-250
+X-API-Key: sir-4d-api-2026
 ```
 
 **Payload:**
@@ -257,7 +257,7 @@ X-API-Key: 4d-api-key-250
 **Headers Sent:**
 ```
 Content-Type: application/json
-X-API-Key: 4d-api-key-250
+X-API-Key: sir-4d-api-2026
 ```
 
 **Payload:**
@@ -299,7 +299,7 @@ X-API-Key: 4d-api-key-250
 ```bash
 curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: 4d-api-key-250" \
+  -H "X-API-Key: sir-4d-api-2026" \
   -d '{
     "mpl_number": "MPL-TEST-001",
     "items": [
@@ -325,7 +325,7 @@ curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mp
 ```bash
 curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: 4d-api-key-250" \
+  -H "X-API-Key: sir-4d-api-2026" \
   -d '{
     "order_number": "ORD-TEST-001",
     "customer_name": "Test Customer",
@@ -418,7 +418,7 @@ Orders: https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.
 
 **API Key:**
 ```
-4d-api-key-250
+sir-4d-api-2026
 ```
 
 **WMS Interface:**
