@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.1.2
+-- version 5.1.1deb5ubuntu1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost:8889
--- Generation Time: Feb 28, 2026 at 07:32 AM
--- Server version: 5.7.24
--- PHP Version: 8.3.1
+-- Host: localhost:3306
+-- Generation Time: Mar 05, 2026 at 02:20 AM
+-- Server version: 10.6.23-MariaDB-0ubuntu0.22.04.1
+-- PHP Version: 8.1.2-1ubuntu2.23
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `4d_wms`
+-- Database: `et556_db`
 --
 
 -- --------------------------------------------------------
@@ -29,22 +29,14 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `packing_list` (
   `id` int(11) NOT NULL,
-  `mpl_number` varchar(100) NOT NULL,
+  `reference_number` varchar(50) NOT NULL,
   `trailer_number` varchar(50) DEFAULT NULL,
   `expected_arrival` date DEFAULT NULL,
-  `status` enum('pending','confirmed','cancelled') DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `confirmed_at` timestamp NULL DEFAULT NULL,
+  `status` enum('pending','confirmed','closed') DEFAULT 'pending',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `confirmed_at` datetime DEFAULT NULL,
   `confirmed_by_user_id` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
---
--- Dumping data for table `packing_list`
---
-
-INSERT INTO `packing_list` (`id`, `mpl_number`, `trailer_number`, `expected_arrival`, `status`, `created_at`, `confirmed_at`, `confirmed_by_user_id`) VALUES
-(22, 'MPL-TEST-001', NULL, NULL, 'confirmed', '2026-02-27 04:19:17', '2026-02-27 04:19:46', 5),
-(23, 'MPL-YAAK-001', NULL, NULL, 'confirmed', '2026-02-27 04:54:19', '2026-02-27 04:55:01', 5);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Indexes for dumped tables
@@ -55,9 +47,7 @@ INSERT INTO `packing_list` (`id`, `mpl_number`, `trailer_number`, `expected_arri
 --
 ALTER TABLE `packing_list`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `mpl_number` (`mpl_number`),
-  ADD KEY `idx_mpl_number` (`mpl_number`),
-  ADD KEY `idx_status` (`status`);
+  ADD UNIQUE KEY `reference_number` (`reference_number`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -67,7 +57,7 @@ ALTER TABLE `packing_list`
 -- AUTO_INCREMENT for table `packing_list`
 --
 ALTER TABLE `packing_list`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
