@@ -1,1 +1,8 @@
+# System
 .DS_Store
+
+# env
+.env
+
+.htaccess
+_htaccess
