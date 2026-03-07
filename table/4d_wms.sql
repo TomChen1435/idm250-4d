@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Feb 04, 2026 at 05:50 PM
+-- Generation Time: Feb 27, 2026 at 05:25 AM
 -- Server version: 5.7.24
 -- PHP Version: 8.3.1
 
@@ -35,6 +35,14 @@ CREATE TABLE `inventory` (
   `last_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `inventory`
+--
+
+INSERT INTO `inventory` (`id`, `sku`, `quantity_available`, `quantity_reserved`, `last_updated`) VALUES
+(6, 'TEST-SKU-001', 0, 0, '2026-02-27 04:19:46'),
+(7, 'YAAK-SKU-001', 0, 0, '2026-02-27 04:55:01');
+
 -- --------------------------------------------------------
 
 --
@@ -52,6 +60,13 @@ CREATE TABLE `orders` (
   `status` enum('pending','processing','shipped','cancelled') DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `orders`
+--
+
+INSERT INTO `orders` (`id`, `order_number`, `customer_name`, `total_items`, `address`, `time_created`, `time_shipped`, `status`) VALUES
+(2, 'ORD-YAAK-001', 'Yaak Test Customer', 0, '123 Test Street, Philadelphia, PA 19103', '2026-02-27 05:05:49', NULL, 'pending');
+
 -- --------------------------------------------------------
 
 --
@@ -66,6 +81,13 @@ CREATE TABLE `order_items` (
   `shipped` int(11) DEFAULT '0',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `order_items`
+--
+
+INSERT INTO `order_items` (`id`, `order_id`, `sku`, `ordered`, `shipped`, `created_at`) VALUES
+(1, 2, 'YAAK-SKU-001', 30, 0, '2026-02-27 05:05:49');
 
 -- --------------------------------------------------------
 
@@ -82,6 +104,14 @@ CREATE TABLE `packing_list` (
   `confirmed_by_user_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+--
+-- Dumping data for table `packing_list`
+--
+
+INSERT INTO `packing_list` (`id`, `mpl_number`, `status`, `created_at`, `confirmed_at`, `confirmed_by_user_id`) VALUES
+(22, 'MPL-TEST-001', 'confirmed', '2026-02-27 04:19:17', '2026-02-27 04:19:46', 5),
+(23, 'MPL-YAAK-001', 'confirmed', '2026-02-27 04:54:19', '2026-02-27 04:55:01', 5);
+
 -- --------------------------------------------------------
 
 --
@@ -97,6 +127,30 @@ CREATE TABLE `packing_list_items` (
   `status` enum('pending','received','partial') DEFAULT 'pending',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `packing_list_items`
+--
+
+INSERT INTO `packing_list_items` (`id`, `mpl_id`, `sku`, `quantity_expected`, `quantity_received`, `status`, `created_at`) VALUES
+(2, 22, 'TEST-SKU-001', 100, 0, 'pending', '2026-02-27 04:19:17'),
+(3, 23, 'YAAK-SKU-001', 150, 0, 'pending', '2026-02-27 04:54:19');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `shipped_items`
+--
+
+CREATE TABLE `shipped_items` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `order_number` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `sku` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quantity` int(11) NOT NULL,
+  `customer_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `shipped_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -134,7 +188,9 @@ INSERT INTO `sku` (`id`, `ficha`, `sku`, `description`, `uom`, `pieces`, `length
 (10, 568, '1720832-0612', 'SOUTHERN PINE PT 4X4X12FT GC', 'BUNDLE', 130, '144', '44', '48', '5120.00'),
 (11, 821, '1720860-0528', 'ASH 4/4 FAS KD 9FT', 'PALLET', 125, '108', '48', '38', '3400.00'),
 (12, 822, '1720860-0529', 'ASH 4/4 FAS KD 9FT', 'PALLET', 126, '144', '48', '40', '4000.00'),
-(13, 823, '1720860-0530', 'ASH 4/4 FAS KD 9FT', 'PALLET', 127, '120', '36', '30', '2400.00');
+(13, 823, '1720860-0530', 'ASH 4/4 FAS KD 9FT', 'PALLET', 127, '120', '36', '30', '2400.00'),
+(17, 12345, 'TEST-SKU-001', 'Test Product', '0', 50, '48', '40', '50', '1200.00'),
+(18, 99001, 'YAAK-SKU-001', 'Yaak Test Product', '0', 60, '48', '40', '52', '1500.00');
 
 -- --------------------------------------------------------
 
@@ -145,11 +201,19 @@ INSERT INTO `sku` (`id`, `ficha`, `sku`, `description`, `uom`, `pieces`, `length
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `first_name` varchar(100) DEFAULT NULL,
-  `last_name` varchar(100) DEFAULT NULL
+  `last_login` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `last_login`, `created_at`) VALUES
+(1, 'enoch', 'et556@drexel.edu', '$2y$10$d.A4x7MRcJ9DDbj0CmLlKeMgZGW0AjAuxlW9QctPH0FeKg6KM0.c.', '2026-02-25 04:00:53', '2026-02-25 08:54:21'),
+(5, 'admin', 'admin@wms.com', '$2y$10$QYYg6BNTNpNYxF3BbVLuceaTOBA2wyhIttNeLDcwsorIyM3fxEiI2', '2026-02-25 13:56:17', '2026-02-25 09:19:55');
 
 --
 -- Indexes for dumped tables
@@ -196,6 +260,15 @@ ALTER TABLE `packing_list_items`
   ADD KEY `idx_mpl_id` (`mpl_id`);
 
 --
+-- Indexes for table `shipped_items`
+--
+ALTER TABLE `shipped_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_order_id` (`order_id`),
+  ADD KEY `idx_sku` (`sku`),
+  ADD KEY `idx_shipped_at` (`shipped_at`);
+
+--
 -- Indexes for table `sku`
 --
 ALTER TABLE `sku`
@@ -208,8 +281,7 @@ ALTER TABLE `sku`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`);
+  ADD UNIQUE KEY `username` (`username`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -219,43 +291,49 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `inventory`
 --
 ALTER TABLE `inventory`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `packing_list`
 --
 ALTER TABLE `packing_list`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `packing_list_items`
 --
 ALTER TABLE `packing_list_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `shipped_items`
+--
+ALTER TABLE `shipped_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `sku`
 --
 ALTER TABLE `sku`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- Constraints for dumped tables

@@ -7,7 +7,7 @@ $mysqli = new mysqli(
     $env['DB_USER'],
     $env['DB_PASS'],
     $env['DB_NAME'],
-    (int)$env['DB_PORT']
+    (int)$env['DB_PORT']       //delete this line, i only needed it for my local
 );
 
 if ($mysqli->connect_error) {

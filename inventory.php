@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once 'db_connect.php';
+require_once 'auth.php';
+require_login();
 
 $message = '';
 $username = $_SESSION['username'] ?? 'U';
@@ -34,10 +36,6 @@ $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 // UOM options for filter
 $uom_result = $mysqli->query("SELECT DISTINCT uom FROM sku WHERE uom IS NOT NULL ORDER BY uom");
 $uoms = $uom_result ? $uom_result->fetch_all(MYSQLI_ASSOC) : [];
-
-// SKU list for dropdown in modal
-$sku_result = $mysqli->query("SELECT sku, description FROM sku ORDER BY sku ASC");
-$sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -60,18 +58,22 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="inventory.php" class="nav-item active">
                 <p>Current Inventory</p>
             </a>
+
+             <a href="mpl.php" class="nav-item">
+                <p>MPL</p>
+            </a>
+
             <a href="orders.php" class="nav-item">
                 <p>Orders</p>
             </a>
-            <a href="order-items.php" class="nav-item">
-                <p>Order Items</p>
-            </a>
+        
             <a href="shipped.php" class="nav-item">
-                <p>Shipped</p>
+                <p>Shipped Items</p>
             </a>
+           
         </nav>
         <div class="logout">
-            <a href="#" class="logout-btn">
+            <a href="logout.php" class="logout-btn">
                 <p>Logout</p>
             </a>
         </div>
@@ -82,8 +84,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <button class="icon-btn">🔔</button>
-                <button class="icon-btn">⚙️</button>
+
                 <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
             </div>
         </header>
@@ -91,7 +92,7 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
         <main class="content">
             <div class="breadcrumb">Warehouse / Current Inventory</div>
             <h1 class="page-title">Current Inventory Levels</h1>
-            <p class="page-subtitle">Real-time view of stock levels across all warehouse locations</p>
+            <p class="page-subtitle">Automatically updated when MPLs are confirmed (+) and orders are shipped (−)</p>
 
             <?php if ($message): ?>
                 <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
@@ -127,10 +128,6 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
                         </option>
                     <?php endforeach; ?>
                 </select>
-
-                <button class="btn-primary" onclick="openInvAddModal()" style="margin-left:auto;">
-                    + Add Inventory
-                </button>
             </div>
 
             <!-- Table -->
@@ -146,16 +143,15 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
                             <th>Reserved</th>
                             <th>Status</th>
                             <th>Last Updated</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="9">
+                            <td colspan="8">
                                 <div class="empty-state">
-                                    <div style="font-size:48px;">🔭</div>
-                                    <p>No inventory records found.<br>Add your first entry above.</p>
+                                    <div style="font-size:48px;">📦</div>
+                                    <p>No inventory yet.<br>Inventory will be added automatically when you confirm MPLs.</p>
                                 </div>
                             </td>
                         </tr>
@@ -181,63 +177,19 @@ $sku_list = $sku_result ? $sku_result->fetch_all(MYSQLI_ASSOC) : [];
                             <td style="color:#6B7280; font-size:13px;">
                                 <?= $row['last_updated'] ? date('M d, Y', strtotime($row['last_updated'])) : '—' ?>
                             </td>
-                            <td>
-                                <button class="edit-btn" onclick='editRow(<?= htmlspecialchars(json_encode($row), ENT_QUOTES) ?>)'>
-                                    Edit
-                                </button>
-                            </td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
+
+           
         </main>
 
-        <footer class="footer">© 2025 4D Warehouse Management System</footer>
+        <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
-    <!-- Modal -->
-    <div id="invModal" class="modal">
-        <div class="modal-content">
-            <h2 class="modal-header" id="modalTitle">Add Inventory Record</h2>
-            <form method="POST">
-                <input type="hidden" name="action" id="formAction" value="add">
-                <input type="hidden" name="id" id="rowId">
-
-                <div class="form-group" id="skuSelectGroup">
-                    <label class="form-label">SKU</label>
-                    <select name="sku" id="skuSelect" class="form-input" style="width:100%;">
-                        <option value="">— Select a SKU —</option>
-                        <?php foreach ($sku_list as $s): ?>
-                            <option value="<?= htmlspecialchars($s['sku']) ?>">
-                                <?= htmlspecialchars($s['sku']) ?> — <?= htmlspecialchars($s['description']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group" id="skuTextGroup" style="display:none;">
-                    <label class="form-label">SKU</label>
-                    <input type="text" id="skuDisplay" class="form-input" disabled>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Quantity Available</label>
-                    <input type="number" name="quantity_available" id="qty_available" class="form-input" value="0" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Quantity Reserved</label>
-                    <input type="number" name="quantity_reserved" id="qty_reserved" class="form-input" value="0" min="0">
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Save</button>
-                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="js/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
