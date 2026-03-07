@@ -4,42 +4,20 @@ require_once 'db_connect.php';
 require_once 'auth.php';
 require_login();
 
-$message = '';
-$username = $_SESSION['username'] ?? 'U';
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 
-// Filters
-$search = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
-$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
-$date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
-
-$where_parts = [];
-if ($search) {
-    $where_parts[] = "(si.order_number LIKE '%$search%' OR si.customer_name LIKE '%$search%' OR si.sku LIKE '%$search%')";
-}
-if ($date_from) {
-    $date_from_safe = $mysqli->real_escape_string($date_from);
-    $where_parts[] = "DATE(si.shipped_at) >= '$date_from_safe'";
-}
-if ($date_to) {
-    $date_to_safe = $mysqli->real_escape_string($date_to);
-    $where_parts[] = "DATE(si.shipped_at) <= '$date_to_safe'";
-}
-$where = $where_parts ? 'WHERE ' . implode(' AND ', $where_parts) : '';
-
-// Fetch shipped items
+// Get shipped items with order details
 $result = $mysqli->query("
-    SELECT si.*, s.description, s.uom
+    SELECT si.*, o.ship_to_company
     FROM shipped_items si
-    LEFT JOIN sku s ON si.sku = s.sku
-    $where
+    LEFT JOIN orders o ON si.order_id = o.id
     ORDER BY si.shipped_at DESC
-    LIMIT 200
+    LIMIT 500
 ");
-$items = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+$shipped = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
-// Stats
-$total_shipped = $mysqli->query("SELECT COUNT(*) AS total FROM shipped_items")->fetch_assoc()['total'] ?? 0;
-$total_quantity = $mysqli->query("SELECT SUM(quantity) AS total FROM shipped_items")->fetch_assoc()['total'] ?? 0;
+// Count total units
+$total_units = count($shipped);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +37,7 @@ $total_quantity = $mysqli->query("SELECT SUM(quantity) AS total FROM shipped_ite
             <a href="inventory.php" class="nav-item"><p>Current Inventory</p></a>
             <a href="mpl.php" class="nav-item"><p>MPL</p></a>
             <a href="orders.php" class="nav-item"><p>Orders</p></a>
-            <a href="shipped.php" class="nav-item active"><p>Shipped</p></a>
+            <a href="shipped.php" class="nav-item active"><p>Shipped Items</p></a>
         </nav>
         <div class="logout">
             <a href="logout.php" class="logout-btn">
@@ -72,113 +50,75 @@ $total_quantity = $mysqli->query("SELECT SUM(quantity) AS total FROM shipped_ite
         <header class="header">
             <div></div>
             <div class="header-right">
-             
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
         <main class="content">
             <div class="breadcrumb">Warehouse / Shipped Items</div>
-            <h1 class="page-title">Shipped Items History</h1>
-            <p class="page-subtitle">Complete record of all shipped orders</p>
-
-            <?php if ($message): ?>
-                <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
-                    <?= htmlspecialchars($message) ?>
-                </div>
-            <?php endif; ?>
+            <h1 class="page-title">Shipped Items</h1>
+            <p class="page-subtitle">History of all shipped units</p>
 
             <!-- Stats -->
             <div class="stats-row">
                 <div class="stat-card">
-                    <div class="stat-label">Total Shipments</div>
-                    <div class="stat-value"><?= number_format($total_shipped) ?></div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-label">Total Units Shipped</div>
-                    <div class="stat-value"><?= number_format($total_quantity) ?> units</div>
+                    <div class="stat-value"><?= number_format($total_units) ?></div>
                 </div>
             </div>
 
-            <!-- Filters -->
-            <form method="GET" class="filters">
-                <input type="text" 
-                       name="search" 
-                       class="search-input" 
-                       style="max-width:340px;"
-                       placeholder="Search by order #, customer, or SKU..."
-                       value="<?= htmlspecialchars($search) ?>">
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    placeholder="Search by order, unit ID, or SKU..." 
+                    id="searchInput"
+                    onkeyup="filterShippedTable()"
+                >
+            </div>
 
-                <input type="date" 
-                       name="date_from" 
-                       class="form-input" 
-                       style="max-width:160px;"
-                       value="<?= htmlspecialchars($date_from) ?>"
-                       placeholder="From">
-
-                <input type="date" 
-                       name="date_to" 
-                       class="form-input" 
-                       style="max-width:160px;"
-                       value="<?= htmlspecialchars($date_to) ?>"
-                       placeholder="To">
-
-                <button type="submit" class="btn-primary">Filter</button>
-                
-                <?php if ($search || $date_from || $date_to): ?>
-                    <a href="shipped.php" class="btn-secondary">Clear Filters</a>
-                <?php endif; ?>
-            </form>
-
-            <!-- Table -->
+            <!-- Shipped Items Table -->
             <div class="card">
-                <table class="table">
+                <table class="table" id="shippedTable">
                     <thead>
                         <tr>
-                            <th>Shipped Date</th>
                             <th>Order #</th>
-                            <th>Customer</th>
+                            <th>Unit ID</th>
                             <th>SKU</th>
                             <th>Description</th>
-                            <th>UOM</th>
-                            <th>Quantity</th>
+                            <th>Customer</th>
+                            <th>Shipped Date</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($items)): ?>
+                        <?php if (empty($shipped)): ?>
                         <tr>
-                            <td colspan="7">
-                                <div class="empty-state">
-                                    <div style="font-size:48px;">📦</div>
-                                    <p>No shipped items yet.<br>Items will appear here when orders are shipped.</p>
-                                </div>
+                            <td colspan="6" class="empty-state">
+                                <p>No shipped items found.</p>
                             </td>
                         </tr>
                         <?php else: ?>
-                        <?php foreach ($items as $item): ?>
+                        <?php foreach ($shipped as $item): ?>
                         <tr>
+                            <td class="order-link"><?= htmlspecialchars($item['order_number']) ?></td>
+                            <td class="sku-id"><?= htmlspecialchars($item['unit_id']) ?></td>
+                            <td class="sku-id"><?= htmlspecialchars($item['sku']) ?></td>
+                            <td class="description"><?= htmlspecialchars($item['sku_description']) ?></td>
+                            <td><?= htmlspecialchars($item['ship_to_company']) ?></td>
                             <td class="date-cell"><?= date('M d, Y g:i A', strtotime($item['shipped_at'])) ?></td>
-                            <td>
-                                <span class="sku-id"><?= htmlspecialchars($item['order_number']) ?></span>
-                            </td>
-                            <td><?= htmlspecialchars($item['customer_name']) ?></td>
-                            <td><span class="sku-id"><?= htmlspecialchars($item['sku']) ?></span></td>
-                            <td><span class="description"><?= htmlspecialchars($item['description'] ?? '—') ?></span></td>
-                            <td><?= htmlspecialchars($item['uom'] ?? '—') ?></td>
-                            <td><span class="qty"><?= number_format($item['quantity']) ?></span></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-
-            
         </main>
 
         <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="app.js"></script>
+
 </body>
 </html>

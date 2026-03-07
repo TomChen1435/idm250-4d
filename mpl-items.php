@@ -4,19 +4,14 @@ require_once 'db_connect.php';
 require_once 'auth.php';
 require_login();
 
-$message = '';
-$username = $_SESSION['username'] ?? 'U';
-
-// Get MPL ID from URL
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 $mpl_id = isset($_GET['mpl_id']) ? (int)$_GET['mpl_id'] : 0;
 
-if (!$mpl_id) {
-    header('Location: mpl.php');
-    exit;
-}
-
-// Get MPL details
-$mpl_result = $mysqli->query("SELECT * FROM packing_list WHERE id = $mpl_id");
+// Get MPL header details
+$mpl_result = $mysqli->query("SELECT pl.*, u.email as confirmed_by
+                               FROM packing_list pl
+                               LEFT JOIN users u ON pl.confirmed_by_user_id = u.id
+                               WHERE pl.id = $mpl_id");
 $mpl = $mpl_result ? $mpl_result->fetch_assoc() : null;
 
 if (!$mpl) {
@@ -24,39 +19,37 @@ if (!$mpl) {
     exit;
 }
 
-// Get MPL items - handle both sku_id and sku column names
-$columns_check = $mysqli->query("SHOW COLUMNS FROM packing_list_items LIKE 'sku%'");
-$has_sku_id = false;
-
-while ($col = $columns_check->fetch_assoc()) {
-    if ($col['Field'] === 'sku_id') $has_sku_id = true;
-}
-
-if ($has_sku_id) {
-    $items_result = $mysqli->query("
-        SELECT pli.*, s.sku, s.description, s.uom, s.pieces
-        FROM packing_list_items pli
-        JOIN sku s ON pli.sku_id = s.id
-        WHERE pli.mpl_id = $mpl_id
-        ORDER BY pli.id ASC
-    ");
-} else {
-    $items_result = $mysqli->query("
-        SELECT pli.*, s.description, s.uom, s.pieces
-        FROM packing_list_items pli
-        LEFT JOIN sku s ON pli.sku = s.sku
-        WHERE pli.mpl_id = $mpl_id
-        ORDER BY pli.id ASC
-    ");
-}
+// Get individual units in this MPL
+$items_result = $mysqli->query("
+    SELECT pli.unit_id, pli.sku, pli.status, s.description, s.uom, s.pieces
+    FROM packing_list_items pli
+    LEFT JOIN sku s ON pli.sku = s.sku
+    WHERE pli.mpl_id = $mpl_id
+    ORDER BY pli.unit_id
+");
 $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Count total units and group by SKU for summary
+$sku_summary = [];
+foreach ($items as $item) {
+    $sku = $item['sku'];
+    if (!isset($sku_summary[$sku])) {
+        $sku_summary[$sku] = [
+            'count' => 0,
+            'description' => $item['description'],
+            'uom' => $item['uom'],
+            'pieces' => $item['pieces']
+        ];
+    }
+    $sku_summary[$sku]['count']++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MPL Items - <?= htmlspecialchars($mpl['mpl_number']) ?></title>
+    <title>MPL Items - 4D WMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -82,88 +75,128 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
         <main class="content">
             <div class="breadcrumb">
-                <a href="mpl.php" style="color: #6B7280; text-decoration: none;">Warehouse / MPL</a> 
-                / <?= htmlspecialchars($mpl['mpl_number']) ?>
+                <a href="mpl.php" class="breadcrumb-link">Warehouse / MPL</a> 
+                / <?= htmlspecialchars($mpl['reference_number']) ?>
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-header">
                 <div>
-                    <h1 class="page-title">MPL: <?= htmlspecialchars($mpl['mpl_number']) ?></h1>
+                    <h1 class="page-title">MPL: <?= htmlspecialchars($mpl['reference_number']) ?></h1>
                     <p class="page-subtitle">
-                        Status: <span class="status-badge <?= $mpl['status'] === 'confirmed' ? 'badge-in-stock' : 'badge-low' ?>">
-                            <?= ucfirst($mpl['status']) ?>
+                        Status: <?php
+                            $status = $mpl['status'] ?? 'pending';
+                            $badge_class = match($status) {
+                                'confirmed' => 'badge-in-stock',
+                                'cancelled' => 'badge-out',
+                                default => 'badge-low'
+                            };
+                        ?>
+                        <span class="status-badge <?= $badge_class ?>">
+                            <?= ucfirst($status) ?>
                         </span>
                     </p>
                 </div>
-                <a href="mpl.php" class="btn-secondary">← Back to MPL List</a>
+                <a href="mpl.php" class="btn-secondary">Back to MPL List</a>
             </div>
 
-            <?php if ($message): ?>
-                <div class="message <?= str_contains($message, '✅') ? 'success' : 'error' ?>">
-                    <?= htmlspecialchars($message) ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- MPL Info Card -->
-            <div class="card" style="margin-bottom: 20px;">
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+            <!-- MPL Summary -->
+            <div class="card card-spaced">
+                <div class="grid-4">
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Created</div>
-                        <div style="font-weight: 500;"><?= date('M d, Y g:i A', strtotime($mpl['created_at'])) ?></div>
+                        <div class="stat-label">Created</div>
+                        <div class="text-md">
+                            <?= $mpl['created_at'] ? date('M d, Y g:i A', strtotime($mpl['created_at'])) : '—' ?>
+                        </div>
                     </div>
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Confirmed At</div>
-                        <div style="font-weight: 500;"><?= $mpl['confirmed_at'] ? date('M d, Y g:i A', strtotime($mpl['confirmed_at'])) : '—' ?></div>
+                        <div class="stat-label">Confirmed At</div>
+                        <div class="text-md">
+                            <?= $mpl['confirmed_at'] ? date('M d, Y g:i A', strtotime($mpl['confirmed_at'])) : '—' ?>
+                        </div>
                     </div>
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Total Items</div>
-                        <div style="font-weight: 500;"><?= count($items) ?></div>
+                        <div class="stat-label">Confirmed By</div>
+                        <div class="text-md">
+                            <?= htmlspecialchars($mpl['confirmed_by'] ?? '—') ?>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Units</div>
+                        <div class="text-xl">
+                            <?= count($items) ?>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Items Table -->
-            <div class="card">
-                <h3 style="margin: 0 0 20px 0; font-size: 18px;">Line Items</h3>
+            <!-- SKU Summary -->
+            <?php if (!empty($sku_summary)): ?>
+            <div class="card card-spaced">
+                <h3 class="text-lg">SKU Summary</h3>
                 <table class="table">
                     <thead>
                         <tr>
                             <th>SKU</th>
                             <th>Description</th>
                             <th>UOM</th>
+                            <th>Units Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sku_summary as $sku => $summary): ?>
+                        <tr>
+                            <td class="sku-id"><?= htmlspecialchars($sku) ?></td>
+                            <td><?= htmlspecialchars($summary['description']) ?></td>
+                            <td><?= htmlspecialchars($summary['uom']) ?></td>
+                            <td><span class="qty"><?= $summary['count'] ?></span> units</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <!-- Individual Units List -->
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Unit ID</th>
+                            <th>SKU</th>
+                            <th>Description</th>
+                            <th>UOM</th>
                             <th>Pieces</th>
-                            <th>Quantity Expected</th>
-                            <th>Quantity Received</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($items)): ?>
                         <tr>
-                            <td colspan="7" style="text-align:center; padding: 40px; color: #9CA3AF;">
-                                No items found for this MPL
+                            <td colspan="6" class="empty-state">
+                                <p>No units found in this MPL.</p>
                             </td>
                         </tr>
                         <?php else: ?>
-                        <?php foreach ($items as $item): ?>
+                        <?php foreach ($items as $item):
+                            $item_status = $item['status'] ?? 'pending';
+                            $status_badge = match($item_status) {
+                                'received' => 'badge-in-stock',
+                                default => 'badge-low'
+                            };
+                        ?>
                         <tr>
-                            <td><span class="sku-id"><?= htmlspecialchars($item['sku']) ?></span></td>
-                            <td><span class="description"><?= htmlspecialchars($item['description'] ?? '—') ?></span></td>
-                            <td><?= htmlspecialchars($item['uom'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($item['pieces'] ?? '—') ?></td>
-                            <td><span class="qty"><?= number_format($item['quantity_expected']) ?></span></td>
-                            <td><span class="qty"><?= number_format($item['quantity_received']) ?></span></td>
-                            <td>
-                                <span class="status-badge <?= $item['status'] === 'received' ? 'badge-in-stock' : 'badge-low' ?>">
-                                    <?= ucfirst($item['status']) ?>
-                                </span>
-                            </td>
+                            <td class="sku-id"><?= htmlspecialchars($item['unit_id']) ?></td>
+                            <td class="sku-id"><?= htmlspecialchars($item['sku']) ?></td>
+                            <td class="description"><?= htmlspecialchars($item['description']) ?></td>
+                            <td><?= htmlspecialchars($item['uom']) ?></td>
+                            <td><?= htmlspecialchars($item['pieces']) ?></td>
+                            <td><span class="status-badge <?= $status_badge ?>"><?= ucfirst($item_status) ?></span></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
@@ -175,6 +208,6 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
         <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
-    <script src="js/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

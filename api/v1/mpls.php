@@ -1,29 +1,16 @@
 <?php
+/**
+ * WMS API - Receive MPL from CMS
+ * Unit-Based Model (Workbook Structure)
+ */
 
-
-define('API_REQUEST', true);
-require_once '../../db_connect.php';
-require_once '../../auth.php';
-
-// Load environment config
-$env_path = __DIR__ . '/../../.env';
-if (!file_exists($env_path)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Configuration error', 'details' => '.env file not found']);
-    exit;
-}
-$env = parse_ini_file($env_path);
-
-if (!isset($env['X-API-KEY'])) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Configuration error', 'details' => 'X-API-KEY not found in .env']);
-    exit;
-}
-
-// Set JSON response header
 header('Content-Type: application/json');
+require_once __DIR__ . '/../../db_connect.php';
 
-// Validate API key
+// Read environment variables
+$env = parse_ini_file(__DIR__ . '/../../.env');
+
+// Validate API Key
 $headers = getallheaders();
 $headers = array_change_key_case($headers, CASE_LOWER);
 
@@ -36,11 +23,11 @@ if (!isset($headers['x-api-key']) || $headers['x-api-key'] !== $env['X-API-KEY']
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed', 'details' => 'Only POST requests are accepted']);
+    echo json_encode(['error' => 'Method Not Allowed', 'details' => 'Use POST method']);
     exit;
 }
 
-// Read JSON body
+// Read and parse JSON body
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
@@ -50,18 +37,17 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Validate required fields - accept BOTH formats
-$required_fields = ['items'];
-$mpl_number = null;
+// Validate required fields
+$reference_number = null;
 
 // Accept either 'mpl_number' OR 'reference_number'
 if (!empty($data['mpl_number'])) {
-    $mpl_number = $data['mpl_number'];
+    $reference_number = $data['mpl_number'];
 } elseif (!empty($data['reference_number'])) {
-    $mpl_number = $data['reference_number'];
+    $reference_number = $data['reference_number'];
 } else {
     http_response_code(400);
-    echo json_encode(['error' => 'Bad Request', 'details' => 'Missing required field: mpl_number or reference_number']);
+    echo json_encode(['error' => 'Bad Request', 'details' => 'Missing required field: reference_number']);
     exit;
 }
 
@@ -72,15 +58,15 @@ if (empty($data['items']) || !is_array($data['items'])) {
     exit;
 }
 
-// Check for duplicate MPL - use the already-set $mpl_number variable
-$check_stmt = $mysqli->prepare("SELECT id FROM packing_list WHERE mpl_number = ?");
-$check_stmt->bind_param('s', $mpl_number);
+// Check for duplicate MPL
+$check_stmt = $mysqli->prepare("SELECT id FROM packing_list WHERE reference_number = ?");
+$check_stmt->bind_param('s', $reference_number);
 $check_stmt->execute();
 $check_result = $check_stmt->get_result();
 
 if ($check_result->num_rows > 0) {
     http_response_code(409);
-    echo json_encode(['error' => 'Conflict', 'details' => "MPL with reference number $mpl_number already exists"]);
+    echo json_encode(['error' => 'Conflict', 'details' => "MPL with reference number $reference_number already exists"]);
     exit;
 }
 
@@ -88,52 +74,32 @@ if ($check_result->num_rows > 0) {
 $mysqli->begin_transaction();
 
 try {
-    // Create MPL header with trailer_number and expected_arrival
+    // Create MPL header
     $trailer_number = isset($data['trailer_number']) ? $data['trailer_number'] : null;
     $expected_arrival = isset($data['expected_arrival']) ? $data['expected_arrival'] : null;
     
-    $stmt = $mysqli->prepare("INSERT INTO packing_list (mpl_number, trailer_number, expected_arrival, status, created_at) 
+    $stmt = $mysqli->prepare("INSERT INTO packing_list (reference_number, trailer_number, expected_arrival, status, created_at) 
                              VALUES (?, ?, ?, 'pending', NOW())");
-    $stmt->bind_param('sss', $mpl_number, $trailer_number, $expected_arrival);
+    $stmt->bind_param('sss', $reference_number, $trailer_number, $expected_arrival);
     $stmt->execute();
     $mpl_id = $mysqli->insert_id;
     
-    // Process items - aggregate by SKU
+    // Process each individual unit
     $missing_skus = [];
-    $sku_aggregation = [];  // Group items by SKU
+    $unit_count = 0;
     
-    // First pass: aggregate items by SKU and collect SKU details
     foreach ($data['items'] as $item) {
+        // Validate unit has required fields
         if (empty($item['sku'])) {
             throw new Exception('Each item must have sku');
         }
         
+        if (empty($item['unit_id'])) {
+            throw new Exception('Each item must have unit_id');
+        }
+        
         $sku = $mysqli->real_escape_string($item['sku']);
-        
-        // Initialize SKU entry if not exists
-        if (!isset($sku_aggregation[$sku])) {
-            $sku_aggregation[$sku] = [
-                'quantity' => 0,
-                'sku_details' => isset($item['sku_details']) ? $item['sku_details'] : null
-            ];
-        }
-        
-        // If quantity is provided, use it; otherwise count as 1 unit
-        if (isset($item['quantity'])) {
-            $sku_aggregation[$sku]['quantity'] += intval($item['quantity']);
-        } else {
-            $sku_aggregation[$sku]['quantity'] += 1;  // Each item = 1 unit
-        }
-        
-        // Keep sku_details if provided (use first occurrence)
-        if (!$sku_aggregation[$sku]['sku_details'] && isset($item['sku_details'])) {
-            $sku_aggregation[$sku]['sku_details'] = $item['sku_details'];
-        }
-    }
-    
-    // Second pass: process aggregated SKUs
-    foreach ($sku_aggregation as $sku => $item_data) {
-        $quantity = $item_data['quantity'];
+        $unit_id = $mysqli->real_escape_string($item['unit_id']);
         
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");
@@ -143,11 +109,11 @@ try {
         
         if ($sku_result->num_rows === 0) {
             // SKU doesn't exist - create it if we have details
-            if ($item_data['sku_details']) {
-                $details = $item_data['sku_details'];
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
                 
                 // Map CMS field names to WMS field names
-                $desc = $details['description'] ?? '';
+                $description = $details['description'] ?? '';
                 $uom = $details['uom'] ?? $details['uom_primary'] ?? '';
                 $pieces = intval($details['pieces'] ?? 0);
                 $length = floatval($details['length'] ?? $details['length_inches'] ?? 0);
@@ -159,7 +125,7 @@ try {
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $insert_sku->bind_param('ssidddddi', $sku, $desc, $uom, $pieces, $length, $width, $height, $weight, $ficha);
+                $insert_sku->bind_param('ssidddddi', $sku, $description, $uom, $pieces, $length, $width, $height, $weight, $ficha);
                 $insert_sku->execute();
             } else {
                 $missing_skus[] = $sku;
@@ -167,11 +133,11 @@ try {
             }
         } else {
             // SKU exists - update it if we have new details
-            if ($item_data['sku_details']) {
-                $details = $item_data['sku_details'];
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
                 
                 // Map CMS field names to WMS field names
-                $desc = $details['description'] ?? '';
+                $description = $details['description'] ?? '';
                 $uom = $details['uom'] ?? $details['uom_primary'] ?? '';
                 $pieces = intval($details['pieces'] ?? 0);
                 $length = floatval($details['length'] ?? $details['length_inches'] ?? 0);
@@ -191,21 +157,21 @@ try {
                                                     weight = ?, 
                                                     ficha = ?
                                                 WHERE sku = ?");
-                $update_sku->bind_param('sidddddis', $desc, $pieces, $length, $width, $height, $weight, $ficha, $uom, $sku);
+                $update_sku->bind_param('sidddddis', $description, $pieces, $length, $width, $height, $weight, $ficha, $uom, $sku);
                 $update_sku->execute();
             }
         }
         
-        // Insert packing list item with SKU code (not sku_id)
-        // Store quantity_received in a variable
-        $qty_received = 0;
-        $item_stmt = $mysqli->prepare("INSERT INTO packing_list_items (mpl_id, sku, quantity_expected, quantity_received, status, created_at) 
-                                       VALUES (?, ?, ?, ?, 'pending', NOW())");
-        $item_stmt->bind_param('isii', $mpl_id, $sku, $quantity, $qty_received);
-        $item_stmt->execute();
+        // Insert individual unit into packing_list_items
+        $insert_item = $mysqli->prepare("INSERT INTO packing_list_items (mpl_id, unit_id, sku, status) 
+                                         VALUES (?, ?, ?, 'pending')");
+        $insert_item->bind_param('iss', $mpl_id, $unit_id, $sku);
+        $insert_item->execute();
+        
+        $unit_count++;
     }
     
-    // If there are missing SKUs, rollback and return error
+    // If any SKUs were missing and couldn't be created, rollback
     if (!empty($missing_skus)) {
         $mysqli->rollback();
         http_response_code(400);
@@ -216,6 +182,7 @@ try {
         exit;
     }
     
+    // Commit transaction
     $mysqli->commit();
     
     // Success response
@@ -224,12 +191,15 @@ try {
         'success' => true,
         'message' => 'MPL received successfully',
         'mpl_id' => $mpl_id,
-        'mpl_number' => $data['mpl_number'],
-        'items_count' => count($data['items'])
+        'reference_number' => $reference_number,
+        'units_count' => $unit_count
     ]);
     
 } catch (Exception $e) {
     $mysqli->rollback();
-    http_response_code(400);
-    echo json_encode(['error' => 'Failed to process MPL', 'details' => $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Internal Server Error',
+        'details' => 'Failed to process MPL: ' . $e->getMessage()
+    ]);
 }

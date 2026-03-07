@@ -5,7 +5,7 @@ require_once 'auth.php';
 require_login();
 
 $message = '';
-$username = $_SESSION['username'] ?? 'U';
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 $user_id  = $_SESSION['user_id']  ?? 1;
 
 // ── Handle form submissions ───────────────────────────
@@ -26,54 +26,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('Order not found');
             }
             
-            // Get all items in this order - use 'ordered' column
+            // Get all items (units) in this order
             $items_result = $mysqli->query("
-                SELECT oi.*, oi.sku, oi.ordered as quantity
-                FROM order_items oi
-                WHERE oi.order_id = $id
+                SELECT unit_id, sku
+                FROM order_items
+                WHERE order_id = $id
             ");
             $items = $items_result->fetch_all(MYSQLI_ASSOC);
             
-            // Remove quantities from inventory
+            // Process each individual unit
             foreach ($items as $item) {
+                $unit_id = $mysqli->real_escape_string($item['unit_id']);
                 $sku = $mysqli->real_escape_string($item['sku']);
-                $qty = (int)$item['quantity'];
                 
-                // Check if enough inventory available
-                $inv_check = $mysqli->query("SELECT quantity_available FROM inventory WHERE sku = '$sku'");
+                // Get SKU description for history
+                $sku_result = $mysqli->query("SELECT description FROM sku WHERE sku = '$sku'");
+                $sku_data = $sku_result->fetch_assoc();
+                $sku_description = $sku_data ? $sku_data['description'] : '';
                 
-                if (!$inv_check || $inv_check->num_rows === 0) {
-                    throw new Exception("SKU $sku not found in inventory");
-                }
+                // Delete unit from inventory
+                $mysqli->query("DELETE FROM inventory WHERE unit_id = '$unit_id'");
                 
-                $inv_row = $inv_check->fetch_assoc();
-                if ($inv_row['quantity_available'] < $qty) {
-                    throw new Exception("Insufficient inventory for SKU $sku (need $qty, have {$inv_row['quantity_available']})");
-                }
-                
-                // Deduct from inventory
-                $mysqli->query("UPDATE inventory 
-                               SET quantity_available = quantity_available - $qty,
-                                   last_updated = NOW()
-                               WHERE sku = '$sku'");
+                // Add to shipped_items history
+                $order_number = $mysqli->real_escape_string($order['order_number']);
+                $mysqli->query("INSERT INTO shipped_items (order_id, order_number, unit_id, sku, sku_description, shipped_at)
+                               VALUES ($id, '$order_number', '$unit_id', '$sku', '$sku_description', NOW())");
             }
             
             // Update order status to shipped
             $mysqli->query("UPDATE orders 
                            SET status = 'shipped',
-                               time_shipped = NOW()
+                               shipped_at = NOW()
                            WHERE id = $id");
-            
-            // Add to shipped history
-            foreach ($items as $item) {
-                $sku = $mysqli->real_escape_string($item['sku']);
-                $qty = (int)$item['quantity'];
-                $order_number = $mysqli->real_escape_string($order['order_number']);
-                $customer = $mysqli->real_escape_string($order['customer_name']);
-                
-                $mysqli->query("INSERT INTO shipped_items (order_id, order_number, sku, quantity, customer_name, shipped_at)
-                               VALUES ($id, '$order_number', '$sku', $qty, '$customer', NOW())");
-            }
             
             // Send shipment callback to CMS
             $callback_data = [
@@ -153,7 +137,7 @@ $result = $mysqli->query("
            (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS total_items
     FROM orders o
     $where
-    ORDER BY o.time_created DESC
+    ORDER BY o.created_at DESC
     LIMIT 100
 ");
 $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -202,14 +186,14 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
         <main class="content">
             <div class="breadcrumb">Warehouse / Orders</div>
             <h1 class="page-title">Order Management</h1>
-            <p class="page-subtitle">Receive orders from CMS and ship to update inventory</p>
+            <p class="page-subtitle">Receive orders from CMS</p>
 
             <?php if ($message): ?>
                 <div class="message <?= str_contains($message, 'Success') ? 'success' : 'error' ?>">
@@ -272,11 +256,8 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <tbody>
                         <?php if (empty($orders)): ?>
                         <tr>
-                            <td colspan="8">
-                                <div class="empty-state">
-                                    <div style="font-size:48px;">📋</div>
-                                    <p>No orders yet. Orders will appear here when received from CMS.</p>
-                                </div>
+                            <td colspan="8" class="empty-state">
+                                <p>No orders found.</p>
                             </td>
                         </tr>
                         <?php else: ?>
@@ -295,12 +276,22 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                                     <?= htmlspecialchars($o['order_number']) ?>
                                 </a>
                             </td>
-                            <td><?= htmlspecialchars($o['customer_name']) ?></td>
-                            <td class="description"><?= htmlspecialchars($o['address'] ?? '—') ?></td>
+                            <td><?= htmlspecialchars($o['ship_to_company']) ?></td>
+                            <td class="description">
+                                <?php 
+                                $address_parts = array_filter([
+                                    $o['ship_to_street'],
+                                    $o['ship_to_city'],
+                                    $o['ship_to_state'],
+                                    $o['ship_to_zip']
+                                ]);
+                                echo htmlspecialchars(implode(', ', $address_parts)) ?: '—';
+                                ?>
+                            </td>
                             <td><span class="qty"><?= (int)$o['total_items'] ?></span></td>
                             <td><span class="status-badge <?= $badge_class ?>"><?= ucfirst($status) ?></span></td>
-                            <td class="date-cell"><?= $o['time_created'] ? date('M d, Y', strtotime($o['time_created'])) : '—' ?></td>
-                            <td class="date-cell"><?= $o['time_shipped'] ? date('M d, Y', strtotime($o['time_shipped'])) : '—' ?></td>
+                            <td class="date-cell"><?= $o['created_at'] ? date('M d, Y', strtotime($o['created_at'])) : '—' ?></td>
+                            <td class="date-cell"><?= $o['shipped_at'] ? date('M d, Y', strtotime($o['shipped_at'])) : '—' ?></td>
                             <td>
                                 <div class="action-group">
                                     <a href="order-items.php?order_id=<?= $o['id'] ?>" class="edit-btn">View Items</a>
@@ -324,31 +315,17 @@ $orders = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     </div>
 
     <!-- Ship form -->
-    <form id="shipOrderForm" method="POST" style="display:none;">
+    <form id="shipOrderForm" method="POST" class="hidden-form">
         <input type="hidden" name="action" value="ship">
         <input type="hidden" name="id" id="shipOrderId">
     </form>
 
     <!-- Delete form -->
-    <form id="deleteOrderForm" method="POST" style="display:none;">
+    <form id="deleteOrderForm" method="POST" class="hidden-form">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" id="deleteOrderId">
     </form>
 
-    <script>
-        function shipOrder(id) {
-            if (confirm('Ship this order? This will deduct items from inventory and send a shipment callback to CMS.')) {
-                document.getElementById('shipOrderId').value = id;
-                document.getElementById('shipOrderForm').submit();
-            }
-        }
-
-        function deleteOrder(id) {
-            if (confirm('Are you sure you want to delete this order?')) {
-                document.getElementById('deleteOrderId').value = id;
-                document.getElementById('deleteOrderForm').submit();
-            }
-        }
-    </script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -1,29 +1,16 @@
 <?php
+/**
+ * WMS API - Receive Order from CMS
+ * Unit-Based Model (Workbook Structure)
+ */
 
-
-define('API_REQUEST', true);
-require_once '../../db_connect.php';
-require_once '../../auth.php';
-
-// Load environment config
-$env_path = __DIR__ . '/../../.env';
-if (!file_exists($env_path)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Configuration error', 'details' => '.env file not found']);
-    exit;
-}
-$env = parse_ini_file($env_path);
-
-if (!isset($env['X-API-KEY'])) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Configuration error', 'details' => 'X-API-KEY not found in .env']);
-    exit;
-}
-
-// Set JSON response header
 header('Content-Type: application/json');
+require_once __DIR__ . '/../../db_connect.php';
 
-// Validate API key
+// Read environment variables
+$env = parse_ini_file(__DIR__ . '/../../.env');
+
+// Validate API Key
 $headers = getallheaders();
 $headers = array_change_key_case($headers, CASE_LOWER);
 
@@ -36,11 +23,11 @@ if (!isset($headers['x-api-key']) || $headers['x-api-key'] !== $env['X-API-KEY']
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed', 'details' => 'Only POST requests are accepted']);
+    echo json_encode(['error' => 'Method Not Allowed', 'details' => 'Use POST method']);
     exit;
 }
 
-// Read JSON body
+// Read and parse JSON body
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
@@ -50,12 +37,12 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Validate required fields - accept BOTH formats
+// Validate required fields
 $order_number = null;
 $customer_name = null;
 $address = '';
 
-// Accept either 'order_number' from both
+// Order number
 if (!empty($data['order_number'])) {
     $order_number = $data['order_number'];
 } else {
@@ -75,18 +62,11 @@ if (!empty($data['customer_name'])) {
     exit;
 }
 
-// Build address from either single field OR separate fields
-if (!empty($data['address'])) {
-    $address = $data['address'];
-} else {
-    // Build from separate CMS fields
-    $parts = [];
-    if (!empty($data['ship_to_street'])) $parts[] = $data['ship_to_street'];
-    if (!empty($data['ship_to_city'])) $parts[] = $data['ship_to_city'];
-    if (!empty($data['ship_to_state'])) $parts[] = $data['ship_to_state'];
-    if (!empty($data['ship_to_zip'])) $parts[] = $data['ship_to_zip'];
-    $address = implode(', ', $parts);
-}
+// Build address from separate fields
+$ship_to_street = isset($data['ship_to_street']) ? $data['ship_to_street'] : '';
+$ship_to_city = isset($data['ship_to_city']) ? $data['ship_to_city'] : '';
+$ship_to_state = isset($data['ship_to_state']) ? $data['ship_to_state'] : '';
+$ship_to_zip = isset($data['ship_to_zip']) ? $data['ship_to_zip'] : '';
 
 // Validate items
 if (empty($data['items']) || !is_array($data['items'])) {
@@ -96,7 +76,6 @@ if (empty($data['items']) || !is_array($data['items'])) {
 }
 
 // Check for duplicate order
-$order_number = $mysqli->real_escape_string($data['order_number']);
 $check_stmt = $mysqli->prepare("SELECT id FROM orders WHERE order_number = ?");
 $check_stmt->bind_param('s', $order_number);
 $check_stmt->execute();
@@ -112,54 +91,30 @@ if ($check_result->num_rows > 0) {
 $mysqli->begin_transaction();
 
 try {
-    // Create order header - using mapped fields
-    $order_number_safe = $mysqli->real_escape_string($order_number);
-    $customer_name_safe = $mysqli->real_escape_string($customer_name);
-    $address_safe = $mysqli->real_escape_string($address);
-    
-    $stmt = $mysqli->prepare("INSERT INTO orders (order_number, customer_name, address, status, time_created) 
-                             VALUES (?, ?, ?, 'pending', NOW())");
-    $stmt->bind_param('sss', $order_number_safe, $customer_name_safe, $address_safe);
+    // Create order header
+    $stmt = $mysqli->prepare("INSERT INTO orders (order_number, ship_to_company, ship_to_street, ship_to_city, ship_to_state, ship_to_zip, status, created_at) 
+                             VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())");
+    $stmt->bind_param('ssssss', $order_number, $customer_name, $ship_to_street, $ship_to_city, $ship_to_state, $ship_to_zip);
     $stmt->execute();
     $order_id = $mysqli->insert_id;
     
-    // Process items - aggregate by SKU
+    // Process each individual unit
     $missing_skus = [];
-    $insufficient_inventory = [];
-    $sku_aggregation = [];  // Group items by SKU
+    $missing_units = [];
+    $unit_count = 0;
     
-    // First pass: aggregate items by SKU and collect SKU details
     foreach ($data['items'] as $item) {
+        // Validate unit has required fields
         if (empty($item['sku'])) {
             throw new Exception('Each item must have sku');
         }
         
+        if (empty($item['unit_id'])) {
+            throw new Exception('Each item must have unit_id');
+        }
+        
         $sku = $mysqli->real_escape_string($item['sku']);
-        
-        // Initialize SKU entry if not exists
-        if (!isset($sku_aggregation[$sku])) {
-            $sku_aggregation[$sku] = [
-                'quantity' => 0,
-                'sku_details' => isset($item['sku_details']) ? $item['sku_details'] : null
-            ];
-        }
-        
-        // If quantity is provided, use it; otherwise count as 1 unit
-        if (isset($item['quantity'])) {
-            $sku_aggregation[$sku]['quantity'] += intval($item['quantity']);
-        } else {
-            $sku_aggregation[$sku]['quantity'] += 1;  // Each item = 1 unit
-        }
-        
-        // Keep sku_details if provided (use first occurrence)
-        if (!$sku_aggregation[$sku]['sku_details'] && isset($item['sku_details'])) {
-            $sku_aggregation[$sku]['sku_details'] = $item['sku_details'];
-        }
-    }
-    
-    // Second pass: process aggregated SKUs
-    foreach ($sku_aggregation as $sku => $item_data) {
-        $quantity = $item_data['quantity'];
+        $unit_id = $mysqli->real_escape_string($item['unit_id']);
         
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");
@@ -169,8 +124,8 @@ try {
         
         if ($sku_result->num_rows === 0) {
             // SKU doesn't exist - create it if we have details
-            if ($item_data['sku_details']) {
-                $details = $item_data['sku_details'];
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
                 
                 // Map CMS field names to WMS field names
                 $description = $details['description'] ?? '';
@@ -193,8 +148,8 @@ try {
             }
         } else {
             // SKU exists - update it if we have new details
-            if ($item_data['sku_details']) {
-                $details = $item_data['sku_details'];
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
                 
                 // Map CMS field names to WMS field names
                 $description = $details['description'] ?? '';
@@ -222,60 +177,67 @@ try {
             }
         }
         
-        // Check inventory availability (warning only)
-        $inv_stmt = $mysqli->prepare("SELECT quantity_available FROM inventory WHERE sku = ?");
-        $inv_stmt->bind_param('s', $sku);
+        // Validate that unit_id exists in inventory
+        $inv_stmt = $mysqli->prepare("SELECT id FROM inventory WHERE unit_id = ? AND sku = ? AND status = 'available'");
+        $inv_stmt->bind_param('ss', $unit_id, $sku);
         $inv_stmt->execute();
         $inv_result = $inv_stmt->get_result();
         
-        if ($inv_result->num_rows > 0) {
-            $inv_row = $inv_result->fetch_assoc();
-            if ($inv_row['quantity_available'] < $quantity) {
-                $insufficient_inventory[] = "$sku (need $quantity, have {$inv_row['quantity_available']})";
-            }
+        if ($inv_result->num_rows === 0) {
+            $missing_units[] = $unit_id;
+            continue;
         }
         
-        // Insert order item with SKU code - using 'ordered' column
-        $item_stmt = $mysqli->prepare("INSERT INTO order_items (order_id, sku, ordered, shipped, created_at) 
-                                       VALUES (?, ?, ?, 0, NOW())");
-        $item_stmt->bind_param('isi', $order_id, $sku, $quantity);
-        $item_stmt->execute();
+        // Insert individual unit into order_items
+        $insert_item = $mysqli->prepare("INSERT INTO order_items (order_id, unit_id, sku) 
+                                         VALUES (?, ?, ?)");
+        $insert_item->bind_param('iss', $order_id, $unit_id, $sku);
+        $insert_item->execute();
+        
+        $unit_count++;
     }
     
-    // If there are missing SKUs, rollback and return error
+    // If any SKUs were missing and couldn't be created, rollback
     if (!empty($missing_skus)) {
         $mysqli->rollback();
         http_response_code(400);
         echo json_encode([
             'error' => 'Bad Request',
-            'details' => 'SKUs not found in WMS: ' . implode(', ', $missing_skus)
+            'details' => 'Missing SKUs in WMS: ' . implode(', ', $missing_skus)
         ]);
         exit;
     }
     
+    // If any units were not found in inventory, rollback
+    if (!empty($missing_units)) {
+        $mysqli->rollback();
+        http_response_code(400);
+        echo json_encode([
+            'error' => 'Bad Request',
+            'details' => 'Units not in WMS inventory: ' . implode(', ', $missing_units)
+        ]);
+        exit;
+    }
+    
+    // Commit transaction
     $mysqli->commit();
     
-    // Build response with warnings if needed
-    $response = [
+    // Success response
+    http_response_code(201);
+    echo json_encode([
         'success' => true,
         'message' => 'Order received successfully',
         'order_id' => $order_id,
         'order_number' => $order_number,
         'customer_name' => $customer_name,
-        'items_count' => count($data['items'])
-    ];
-    
-    if (!empty($insufficient_inventory)) {
-        $response['warnings'] = [
-            'insufficient_inventory' => $insufficient_inventory
-        ];
-    }
-    
-    http_response_code(201);
-    echo json_encode($response);
+        'units_count' => $unit_count
+    ]);
     
 } catch (Exception $e) {
     $mysqli->rollback();
-    http_response_code(400);
-    echo json_encode(['error' => 'Failed to process order', 'details' => $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Internal Server Error',
+        'details' => 'Failed to process order: ' . $e->getMessage()
+    ]);
 }
