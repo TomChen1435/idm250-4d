@@ -206,7 +206,12 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                 </div>
                 <div class="form-group">
                     <label class="form-label">UOM (Unit of Measure)</label>
-                    <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE, BOX">
+                    <select name="uom" id="uom">
+                        <option value="PALLET">PALLET</option>
+                        <option value="BUNDLE">BUNDLE</option>
+                        <option value="BOX">BOX</option>
+                    </select>
+                    <!-- <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE, BOX"> -->
                 </div>
                 <div class="form-group">
                     <label class="form-label">Pieces per Unit</label>
