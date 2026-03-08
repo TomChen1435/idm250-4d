@@ -18,4 +18,4 @@ $mysqli->set_charset("utf8mb4");
 
 
 // timezone
-$mysqli->query("SET time_zone = '-05:00'");
+$mysqli->query("SET time_zone = '-04:00'");
