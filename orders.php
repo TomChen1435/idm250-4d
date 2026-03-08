@@ -28,10 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             // Get all items in this order - use 'ordered' column
             $items_result = $mysqli->query("
-                SELECT oi.sku, SUM(oi.ordered) as quantity
+                SELECT oi.*, oi.sku, oi.ordered as quantity
                 FROM order_items oi
                 WHERE oi.order_id = $id
-                GROUP BY oi.sku
             ");
             $items = $items_result->fetch_all(MYSQLI_ASSOC);
             

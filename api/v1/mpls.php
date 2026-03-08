@@ -89,8 +89,7 @@ try {
     $stmt->execute();
     $mpl_id = $mysqli->insert_id;
     
-    // Process items - aggregate quantities for same SKU
-    $aggregated_items = [];
+    // Process items - store each item individually
     $missing_skus = [];
     
     foreach ($data['items'] as $item) {
@@ -101,18 +100,6 @@ try {
         $sku = $mysqli->real_escape_string($item['sku']);
         $quantity = intval($item['quantity']);
         
-        if (!isset($aggregated_items[$sku])) {
-            $aggregated_items[$sku] = [
-                'quantity' => 0,
-                'sku_details' => $item['sku_details'] ?? null
-            ];
-        }
-        $aggregated_items[$sku]['quantity'] += $quantity;
-    }
-    
-    foreach ($aggregated_items as $sku => $item_data) {
-        $quantity = $item_data['quantity'];
-        
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");
         $sku_stmt->bind_param('s', $sku);
@@ -121,8 +108,8 @@ try {
         
         if ($sku_result->num_rows === 0) {
             // SKU doesn't exist - check if we have details to auto-create
-            if ($item_data['sku_details']) {
-                $details = $item_data['sku_details'];
+            if (isset($item['sku_details'])) {
+                $details = $item['sku_details'];
                 
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 

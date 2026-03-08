@@ -34,21 +34,19 @@ while ($col = $columns_check->fetch_assoc()) {
 
 if ($has_sku_id) {
     $items_result = $mysqli->query("
-        SELECT pli.sku_id, s.sku, SUM(pli.quantity_expected) as quantity_expected, SUM(pli.quantity_received) as quantity_received, s.description, s.uom, s.pieces
+        SELECT pli.*, s.sku, s.description, s.uom, s.pieces
         FROM packing_list_items pli
         JOIN sku s ON pli.sku_id = s.id
         WHERE pli.mpl_id = $mpl_id
-        GROUP BY pli.sku_id
-        ORDER BY s.sku ASC
+        ORDER BY pli.id ASC
     ");
 } else {
     $items_result = $mysqli->query("
-        SELECT pli.sku, SUM(pli.quantity_expected) as quantity_expected, SUM(pli.quantity_received) as quantity_received, s.description, s.uom, s.pieces
+        SELECT pli.*, s.description, s.uom, s.pieces
         FROM packing_list_items pli
         LEFT JOIN sku s ON pli.sku = s.sku
         WHERE pli.mpl_id = $mpl_id
-        GROUP BY pli.sku
-        ORDER BY pli.sku ASC
+        ORDER BY pli.id ASC
     ");
 }
 $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];

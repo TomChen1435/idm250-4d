@@ -93,8 +93,7 @@ try {
     $stmt->execute();
     $order_id = $mysqli->insert_id;
     
-    // Process items - aggregate quantities for same SKU
-    $aggregated_items = [];
+    // Process items - store each item individually
     $missing_skus = [];
     $insufficient_inventory = [];
     
@@ -105,15 +104,6 @@ try {
         
         $sku = $mysqli->real_escape_string($item['sku']);
         $quantity = intval($item['quantity']);
-        
-        if (!isset($aggregated_items[$sku])) {
-            $aggregated_items[$sku] = ['quantity' => 0];
-        }
-        $aggregated_items[$sku]['quantity'] += $quantity;
-    }
-    
-    foreach ($aggregated_items as $sku => $item_data) {
-        $quantity = $item_data['quantity'];
         
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");

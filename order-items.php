@@ -26,12 +26,11 @@ if (!$order) {
 
 // Get Order items - using 'ordered' column
 $items_result = $mysqli->query("
-    SELECT oi.sku, SUM(oi.ordered) as ordered, SUM(oi.shipped) as shipped, s.description, s.uom, s.pieces
+    SELECT oi.*, s.description, s.uom, s.pieces
     FROM order_items oi
     LEFT JOIN sku s ON oi.sku = s.sku
     WHERE oi.order_id = $order_id
-    GROUP BY oi.sku
-    ORDER BY oi.sku ASC
+    ORDER BY oi.id ASC
 ");
 $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
