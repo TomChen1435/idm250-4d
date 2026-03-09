@@ -24,31 +24,15 @@ if (!$mpl) {
     exit;
 }
 
-// Get MPL items - handle both sku_id and sku column names
-$columns_check = $mysqli->query("SHOW COLUMNS FROM packing_list_items LIKE 'sku%'");
-$has_sku_id = false;
+// Get MPL items
+$items_result = $mysqli->query("
+    SELECT pli.*, s.description, s.uom, s.pieces
+    FROM packing_list_items pli
+    LEFT JOIN sku s ON pli.sku = s.sku
+    WHERE pli.mpl_id = $mpl_id
+    ORDER BY pli.id ASC
+");
 
-while ($col = $columns_check->fetch_assoc()) {
-    if ($col['Field'] === 'sku_id') $has_sku_id = true;
-}
-
-if ($has_sku_id) {
-    $items_result = $mysqli->query("
-        SELECT pli.*, s.sku, s.description, s.uom, s.pieces
-        FROM packing_list_items pli
-        JOIN sku s ON pli.sku_id = s.id
-        WHERE pli.mpl_id = $mpl_id
-        ORDER BY pli.id ASC
-    ");
-} else {
-    $items_result = $mysqli->query("
-        SELECT pli.*, s.description, s.uom, s.pieces
-        FROM packing_list_items pli
-        LEFT JOIN sku s ON pli.sku = s.sku
-        WHERE pli.mpl_id = $mpl_id
-        ORDER BY pli.id ASC
-    ");
-}
 $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
 <!DOCTYPE html>
