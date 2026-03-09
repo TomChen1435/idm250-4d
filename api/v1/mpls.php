@@ -125,7 +125,7 @@ try {
                 // Auto-create SKU
                 $insert_sku = $mysqli->prepare("INSERT INTO sku (sku, description, uom, pieces, length, width, height, weight, ficha) 
                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $insert_sku->bind_param('ssidddddi', $sku, $description, $uom, $pieces, $length, $width, $height, $weight, $ficha);
+                $insert_sku->bind_param('sssiddddi', $sku, $description, $uom, $pieces, $length, $width, $height, $weight, $ficha);
                 $insert_sku->execute();
             } else {
                 $missing_skus[] = $sku;
@@ -157,7 +157,7 @@ try {
                                                     weight = ?, 
                                                     ficha = ?
                                                 WHERE sku = ?");
-                $update_sku->bind_param('sidddddis', $description, $pieces, $length, $width, $height, $weight, $ficha, $uom, $sku);
+                $update_sku->bind_param('ssiddddis', $description, $uom, $pieces, $length, $width, $height, $weight, $ficha, $sku);
                 $update_sku->execute();
             }
         }

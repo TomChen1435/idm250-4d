@@ -92,7 +92,7 @@ function editSKU(sku) {
 }
 
 function deleteSKU(id) {
-    if (!confirm('Are you sure you want to delete this SKU? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this SKU?')) return;
     document.getElementById('deleteSKUId').value = id;
     document.getElementById('deleteSKUForm').submit();
 }
