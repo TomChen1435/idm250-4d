@@ -1,8 +1,0 @@
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100),
-    password VARCHAR(255) NOT NULL, 
-    last_login DATETIME NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);

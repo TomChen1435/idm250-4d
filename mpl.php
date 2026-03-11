@@ -5,7 +5,7 @@ require_once 'auth.php';
 require_login();
 
 $message = '';
-$username = $_SESSION['username'] ?? 'U';
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 $user_id  = $_SESSION['user_id']  ?? 1;
 
 // Handle form submissions
@@ -26,53 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('MPL not found');
             }
             
-            // Get all items in this MPL
-            // First check which column exists in packing_list_items
-            $columns_check = $mysqli->query("SHOW COLUMNS FROM packing_list_items LIKE 'sku%'");
-            $has_sku_id = false;
-            $has_sku = false;
-            
-            while ($col = $columns_check->fetch_assoc()) {
-                if ($col['Field'] === 'sku_id') $has_sku_id = true;
-                if ($col['Field'] === 'sku') $has_sku = true;
-            }
-            
-            // Build query based on table structure
-            if ($has_sku_id) {
-                $items_result = $mysqli->query("
-                    SELECT pli.*, s.sku
-                    FROM packing_list_items pli
-                    JOIN sku s ON pli.sku_id = s.id
-                    WHERE pli.mpl_id = $id
-                ");
-            } else {
-                $items_result = $mysqli->query("
-                    SELECT pli.*, pli.sku
-                    FROM packing_list_items pli
-                    WHERE pli.mpl_id = $id
-                ");
-            }
+            // Get all items (units) in this MPL
+            $items_result = $mysqli->query("
+                SELECT unit_id, sku
+                FROM packing_list_items
+                WHERE mpl_id = $id
+            ");
             $items = $items_result->fetch_all(MYSQLI_ASSOC);
             
-            // Add quantities to inventory
+            // Add each individual unit to inventory
             foreach ($items as $item) {
+                $unit_id = $mysqli->real_escape_string($item['unit_id']);
                 $sku = $mysqli->real_escape_string($item['sku']);
-                $qty = (int)$item['quantity_expected']; // Use quantity_expected from packing_list_items
                 
-                // Check if inventory record exists
-                $inv_check = $mysqli->query("SELECT id, quantity_available FROM inventory WHERE sku = '$sku'");
-                
-                if ($inv_check && $inv_check->num_rows > 0) {
-                    // Update existing inventory
-                    $mysqli->query("UPDATE inventory 
-                                   SET quantity_available = quantity_available + $qty,
-                                       last_updated = NOW()
-                                   WHERE sku = '$sku'");
-                } else {
-                    // Create new inventory record
-                    $mysqli->query("INSERT INTO inventory (sku, quantity_available, quantity_reserved, last_updated)
-                                   VALUES ('$sku', $qty, 0, NOW())");
-                }
+                // Insert unit into inventory
+                $mysqli->query("INSERT INTO inventory (unit_id, sku, location, status, received_at)
+                               VALUES ('$unit_id', '$sku', 'warehouse', 'available', NOW())");
             }
             
             // Update MPL status to confirmed
@@ -82,14 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                confirmed_by_user_id = $user_id
                            WHERE id = $id");
             
+            // Update all line items status to 'received'
+            $mysqli->query("UPDATE packing_list_items 
+                           SET status = 'received'
+                           WHERE mpl_id = $id");
+            
             // Send confirmation callback to CMS
             $callback_data = [
                 'action' => 'confirm',
-                'reference_number' => $mpl['mpl_number']
+                'reference_number' => $mpl['reference_number']
             ];
             
-            // Mock CMS callback URL for testing
-            $cms_callback_url = 'http://localhost:8888/api/mock_cms_mpls.php';
+            // CMS callback URL
+            $cms_callback_url = 'https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/mpls.php';
             send_cms_callback($cms_callback_url, $callback_data);
             
             $mysqli->commit();
@@ -148,11 +122,11 @@ $search        = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET
 $status_filter = isset($_GET['status']) ? $mysqli->real_escape_string(trim($_GET['status'])) : '';
 
 $where_parts = [];
-if ($search)        $where_parts[] = "mpl_number LIKE '%$search%'";
+if ($search)        $where_parts[] = "reference_number LIKE '%$search%'";
 if ($status_filter) $where_parts[] = "status = '$status_filter'";
 $where = $where_parts ? 'WHERE ' . implode(' AND ', $where_parts) : '';
 
-$result = $mysqli->query("SELECT pl.*, u.username as confirmed_by
+$result = $mysqli->query("SELECT pl.*, u.email as confirmed_by
                           FROM packing_list pl
                           LEFT JOIN users u ON pl.confirmed_by_user_id = u.id
                           $where
@@ -194,14 +168,14 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
         <main class="content">
             <div class="breadcrumb">Warehouse / Master Packing List</div>
             <h1 class="page-title">Master Packing List (MPL)</h1>
-            <p class="page-subtitle">Receive MPLs from CMS and confirm to update inventory</p>
+            <p class="page-subtitle">Receive MPLs from CMS</p>
 
             <?php if ($message): ?>
                 <div class="message <?= str_contains($message, 'Success') ? 'success' : 'error' ?>">
@@ -257,11 +231,8 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                     <tbody>
                         <?php if (empty($mpls)): ?>
                         <tr>
-                            <td colspan="6">
-                                <div class="empty-state">
-                                    <div style="font-size:48px;">📦</div>
-                                    <p>No packing lists yet. MPLs will appear here when received from CMS.</p>
-                                </div>
+                            <td colspan="6" class="empty-state">
+                                <p>No packing lists found.</p>
                             </td>
                         </tr>
                         <?php else: ?>
@@ -276,7 +247,7 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                         <tr>
                             <td>
                                 <a href="mpl-items.php?mpl_id=<?= $mpl['id'] ?>" class="order-link">
-                                    <?= htmlspecialchars($mpl['mpl_number']) ?>
+                                    <?= htmlspecialchars($mpl['reference_number']) ?>
                                 </a>
                             </td>
                             <td><span class="status-badge <?= $badge_class ?>"><?= ucfirst($status) ?></span></td>
@@ -306,31 +277,17 @@ $mpls = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     </div>
 
     <!-- Confirm form -->
-    <form id="confirmMPLForm" method="POST" style="display:none;">
+    <form id="confirmMPLForm" method="POST" class="hidden-form">
         <input type="hidden" name="action" value="confirm">
         <input type="hidden" name="id" id="confirmMPLId">
     </form>
 
     <!-- Delete form -->
-    <form id="deleteMPLForm" method="POST" style="display:none;">
+    <form id="deleteMPLForm" method="POST" class="hidden-form">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" id="deleteMPLId">
     </form>
 
-    <script>
-        function confirmMPL(id) {
-            if (confirm('Confirm this MPL? This will add all items to inventory and send a confirmation to CMS.')) {
-                document.getElementById('confirmMPLId').value = id;
-                document.getElementById('confirmMPLForm').submit();
-            }
-        }
-
-        function deleteMPL(id) {
-            if (confirm('Are you sure you want to delete this MPL?')) {
-                document.getElementById('deleteMPLId').value = id;
-                document.getElementById('deleteMPLForm').submit();
-            }
-        }
-    </script>
+<script src="app.js"></script>
 </body>
 </html>

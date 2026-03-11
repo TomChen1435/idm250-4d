@@ -4,18 +4,10 @@ require_once 'db_connect.php';
 require_once 'auth.php';
 require_login();
 
-$message = '';
-$username = $_SESSION['username'] ?? 'U';
-
-// Get Order ID from URL
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 $order_id = isset($_GET['order_id']) ? (int)$_GET['order_id'] : 0;
 
-if (!$order_id) {
-    header('Location: orders.php');
-    exit;
-}
-
-// Get Order details
+// Get order header details
 $order_result = $mysqli->query("SELECT * FROM orders WHERE id = $order_id");
 $order = $order_result ? $order_result->fetch_assoc() : null;
 
@@ -24,22 +16,37 @@ if (!$order) {
     exit;
 }
 
-// Get Order items - using 'ordered' column
+// Get individual units in this order
 $items_result = $mysqli->query("
-    SELECT oi.*, s.description, s.uom, s.pieces
+    SELECT oi.unit_id, oi.sku, s.description, s.uom, s.pieces
     FROM order_items oi
     LEFT JOIN sku s ON oi.sku = s.sku
     WHERE oi.order_id = $order_id
-    ORDER BY oi.id ASC
+    ORDER BY oi.unit_id
 ");
 $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Count total units and group by SKU for summary
+$sku_summary = [];
+foreach ($items as $item) {
+    $sku = $item['sku'];
+    if (!isset($sku_summary[$sku])) {
+        $sku_summary[$sku] = [
+            'count' => 0,
+            'description' => $item['description'],
+            'uom' => $item['uom'],
+            'pieces' => $item['pieces']
+        ];
+    }
+    $sku_summary[$sku]['count']++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Items - <?= htmlspecialchars($order['order_number']) ?></title>
+    <title>Order Items - 4D WMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -65,7 +72,7 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
@@ -75,77 +82,118 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
                 / <?= htmlspecialchars($order['order_number']) ?>
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-header">
                 <div>
                     <h1 class="page-title">Order: <?= htmlspecialchars($order['order_number']) ?></h1>
                     <p class="page-subtitle">
-                        Customer: <strong><?= htmlspecialchars($order['customer_name']) ?></strong> | 
-                        Status: <span class="status-badge <?= $order['status'] === 'shipped' ? 'badge-in-stock' : 'badge-low' ?>">
-                            <?= ucfirst($order['status']) ?>
+                        Customer: <strong><?= htmlspecialchars($order['ship_to_company']) ?></strong> | 
+                        Status: <?php
+                            $status = $order['status'] ?? 'pending';
+                            $badge_class = match($status) {
+                                'shipped' => 'badge-in-stock',
+                                'processing' => 'badge-processing',
+                                'cancelled' => 'badge-out',
+                                default => 'badge-low'
+                            };
+                        ?>
+                        <span class="status-badge <?= $badge_class ?>">
+                            <?= ucfirst($status) ?>
                         </span>
                     </p>
                 </div>
                 <a href="orders.php" class="btn-secondary">Back to Orders</a>
             </div>
 
-            <?php if ($message): ?>
-                <div class="message <?= str_contains($message, 'Success') ? 'success' : 'error' ?>">
-                    <?= htmlspecialchars($message) ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- Order Info Card -->
-            <div class="card" style="margin-bottom: 20px;">
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+            <!-- Order Summary -->
+            <div class="card card-spaced">
+                <div class="grid-3">
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Customer</div>
-                        <div style="font-weight: 500;"><?= htmlspecialchars($order['customer_name']) ?></div>
+                        <div class="stat-label">Ship To</div>
+                        <div class="text-md">
+                            <?= htmlspecialchars($order['ship_to_company']) ?><br>
+                            <span style="color: #6B7280; font-size: 13px;">
+                                <?= htmlspecialchars($order['ship_to_street']) ?><br>
+                                <?= htmlspecialchars($order['ship_to_city']) ?>, <?= htmlspecialchars($order['ship_to_state']) ?> <?= htmlspecialchars($order['ship_to_zip']) ?>
+                            </span>
+                        </div>
                     </div>
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Address</div>
-                        <div style="font-weight: 500;"><?= htmlspecialchars($order['address'] ?: '—') ?></div>
+                        <div class="stat-label">Created</div>
+                        <div class="text-md">
+                            <?= $order['created_at'] ? date('M d, Y g:i A', strtotime($order['created_at'])) : '—' ?>
+                        </div>
+                        <?php if ($order['shipped_at']): ?>
+                        <div style="margin-top: 12px;">
+                            <div class="stat-label">Shipped At</div>
+                            <div class="text-md">
+                                <?= date('M d, Y g:i A', strtotime($order['shipped_at'])) ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Created</div>
-                        <div style="font-weight: 500;"><?= date('M d, Y g:i A', strtotime($order['time_created'])) ?></div>
-                    </div>
-                    <div>
-                        <div style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">Shipped</div>
-                        <div style="font-weight: 500;"><?= $order['time_shipped'] ? date('M d, Y g:i A', strtotime($order['time_shipped'])) : '—' ?></div>
+                        <div class="stat-label">Total Units</div>
+                        <div class="text-xl">
+                            <?= count($items) ?>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Items Table -->
-            <div class="card">
-                <h3 style="margin: 0 0 20px 0; font-size: 18px;">Line Items</h3>
+            <!-- SKU Summary -->
+            <?php if (!empty($sku_summary)): ?>
+            <div class="card card-spaced">
+                <h3 class="text-lg">SKU Summary</h3>
                 <table class="table">
                     <thead>
                         <tr>
                             <th>SKU</th>
                             <th>Description</th>
                             <th>UOM</th>
+                            <th>Units Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sku_summary as $sku => $summary): ?>
+                        <tr>
+                            <td class="sku-id"><?= htmlspecialchars($sku) ?></td>
+                            <td><?= htmlspecialchars($summary['description']) ?></td>
+                            <td><?= htmlspecialchars($summary['uom']) ?></td>
+                            <td><span class="qty"><?= $summary['count'] ?></span> units</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <!-- Individual Units List -->
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Unit ID</th>
+                            <th>SKU</th>
+                            <th>Description</th>
+                            <th>UOM</th>
                             <th>Pieces</th>
-                            <th>Ordered</th>
-                            <th>Shipped</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($items)): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding: 40px; color: #9CA3AF;">
-                                No items found for this order
+                            <td colspan="5" class="empty-state">
+                                <p>No units found in this order.</p>
                             </td>
                         </tr>
                         <?php else: ?>
                         <?php foreach ($items as $item): ?>
                         <tr>
-                            <td><span class="sku-id"><?= htmlspecialchars($item['sku']) ?></span></td>
-                            <td><span class="description"><?= htmlspecialchars($item['description'] ?? '—') ?></span></td>
-                            <td><?= htmlspecialchars($item['uom'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($item['pieces'] ?? '—') ?></td>
-                            <td><span class="qty"><?= number_format($item['ordered']) ?></span></td>
-                            <td><span class="qty"><?= number_format($item['shipped']) ?></span></td>
+                            <td class="sku-id"><?= htmlspecialchars($item['unit_id']) ?></td>
+                            <td class="sku-id"><?= htmlspecialchars($item['sku']) ?></td>
+                            <td class="description"><?= htmlspecialchars($item['description']) ?></td>
+                            <td><?= htmlspecialchars($item['uom']) ?></td>
+                            <td><?= htmlspecialchars($item['pieces']) ?></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
@@ -157,6 +205,6 @@ $items = $items_result ? $items_result->fetch_all(MYSQLI_ASSOC) : [];
         <footer class="footer">© 2026 4D Warehouse Management System</footer>
     </div>
 
-    <script src="js/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

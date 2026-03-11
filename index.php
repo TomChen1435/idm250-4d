@@ -4,10 +4,9 @@ require_once 'auth.php';
 require_login();
 
 $message = '';
-$message_type = '';
-$username = $_SESSION['username'] ?? 'U';
+$user_email = $_SESSION["user_email"] ?? "user@example.com";
 
-// ── Handle Add / Update / Delete ──────────────────────
+// Handle Add / Update / Delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     try {
         if ($_POST['action'] === 'add') {
@@ -72,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ── Fetch SKUs ────────────────────────────────────────
+// Fetch SKUs
 $search = isset($_GET['search']) ? $mysqli->real_escape_string(trim($_GET['search'])) : '';
 $where  = $search ? "WHERE sku LIKE '%$search%' OR description LIKE '%$search%' OR ficha LIKE '%$search%'" : '';
 $result = $mysqli->query("SELECT * FROM sku $where ORDER BY id ASC LIMIT 50");
@@ -96,22 +95,18 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <a href="index.php" class="nav-item active">
                 <p>SKUs</p>
             </a>
-            <a href="inventory.php"  class="nav-item" >
+            <a href="inventory.php" class="nav-item">
                 <p>Current Inventory</p>
             </a>
-
             <a href="mpl.php" class="nav-item">
                 <p>MPL</p>
             </a>
-
             <a href="orders.php" class="nav-item">
                 <p>Orders</p>
             </a>
-
             <a href="shipped.php" class="nav-item">
                 <p>Shipped Items</p>
             </a>
-            
         </nav>
         <div class="logout">
             <a href="logout.php" class="logout-btn">
@@ -125,8 +120,9 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         <header class="header">
             <div></div>
             <div class="header-right">
-
-                <div class="user-avatar"><?= strtoupper(substr($username, 0, 1)) ?></div>
+                
+                
+                <div class="header-email"><?= htmlspecialchars($user_email) ?></div>
             </div>
         </header>
 
@@ -136,7 +132,7 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
             <p class="page-subtitle">Create, view, edit, and delete product SKUs</p>
 
             <?php if ($message): ?>
-                <div class="message <?= $message_type ?>">
+                <div class="message <?= str_contains($message, 'Error') ? 'error' : 'success' ?>">
                     <?= htmlspecialchars($message) ?>
                 </div>
             <?php endif; ?>
@@ -225,18 +221,18 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                 </div>
                 <div class="form-group">
                     <label class="form-label">UOM (Unit of Measure)</label>
-                    <select name="uom" id="uom">
+                    <select name="uom" id="uom" class="form-input">
+                        <!-- <option value="">Choose UOM...</option> -->
                         <option value="PALLET">PALLET</option>
                         <option value="BUNDLE">BUNDLE</option>
-                        <option value="BOX">BOX</option>
+                        <option value="BUNDLE">BOX</option>
                     </select>
-                    <!-- <input type="text" name="uom" id="uom" class="form-input" placeholder="e.g. PALLET, BUNDLE, BOX"> -->
                 </div>
                 <div class="form-group">
                     <label class="form-label">Pieces per Unit</label>
                     <input type="number" name="pieces" id="pieces" class="form-input">
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                <div class="form-grid-3">
                     <div class="form-group">
                         <label class="form-label">Length (in)</label>
                         <input type="number" step="0.01" name="length" id="length" class="form-input">
@@ -263,13 +259,14 @@ $skus   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
         </div>
     </div>
 
+    </div>
+
     <!-- Delete form -->
-    <form id="deleteSKUForm" method="POST" style="display:none;">
+    <form id="deleteSKUForm" method="POST" class="hidden-form">
         <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="id"     id="deleteSKUId">
+        <input type="hidden" name="id" id="deleteSKUId">
     </form>
 
     <script src="app.js"></script>
-    
 </body>
 </html>

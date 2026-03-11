@@ -1,8 +1,5 @@
 <?php
-/**
- * Run this ONCE to hash all existing user passwords
- * After running, delete this file for security
- */
+
 
 require_once 'db_connect.php';
 
