@@ -22,8 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $ok = $mysqli->query("INSERT INTO sku (ficha, sku, description, uom, pieces, length, width, height, weight)
                                   VALUES ($ficha, '$sku', '$description', '$uom', $pieces, $length, $width, $height, $weight)");
-            $message = $ok ? 'SKU added successfully!' : 'Error: ' . $mysqli->error;
-
+           if ($ok) {
+                        $message = 'SKU added successfully!';
+                        $message_type = 'success';
+                            } else {
+                                $message = 'Error: ' . $mysqli->error;
+                                $message_type = 'error';
+                                }
         } elseif ($_POST['action'] === 'update') {
             $id          = (int)   $_POST['id'];
             $ficha       = (int)   $_POST['ficha'];
@@ -41,15 +46,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                   uom='$uom', pieces=$pieces, length=$length,
                                   width=$width, height=$height, weight=$weight
                                   WHERE id=$id");
-            $message = $ok ? 'SKU updated successfully!' : 'Error: ' . $mysqli->error;
+            if ($ok) {
+                        $message = 'SKU updated successfully!';
+                        $message_type = 'success';
+            } else {
+                        $message = 'Error: ' . $mysqli->error;
+                        $message_type = 'error';
+                    }
 
         } elseif ($_POST['action'] === 'delete') {
             $id = (int) $_POST['id'];
             $ok = $mysqli->query("DELETE FROM sku WHERE id = $id");
-            $message = $ok ? 'SKU deleted successfully!' : 'Error: ' . $mysqli->error;
+            if ($ok) {
+                        $message = 'SKU deleted successfully!';
+                        $message_type = 'success';
+            } else {
+                    $message = 'Error: ' . $mysqli->error;
+                    $message_type = 'error';
+                }
         }
     } catch (Exception $e) {
-        $message = 'Error: ' . $e->getMessage();
+       $message = 'Error: ' . $e->getMessage();
+       $message_type = 'error';
     }
 }
 
