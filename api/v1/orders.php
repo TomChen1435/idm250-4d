@@ -116,6 +116,15 @@ try {
         $sku = $mysqli->real_escape_string($item['sku']);
         $unit_id = $mysqli->real_escape_string($item['unit_id']);
         
+        if (!isset($aggregated_items[$sku])) {
+            $aggregated_items[$sku] = ['quantity' => 0];
+        }
+        $aggregated_items[$sku]['quantity'] += $quantity;
+    }
+    
+    foreach ($aggregated_items as $sku => $item_data) {
+        $quantity = $item_data['quantity'];
+        
         // Check if SKU exists
         $sku_stmt = $mysqli->prepare("SELECT id FROM sku WHERE sku = ?");
         $sku_stmt->bind_param('s', $sku);
