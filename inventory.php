@@ -6,29 +6,32 @@ require_login();
 
 $user_email = $_SESSION["user_email"] ?? "user@example.com";
 
-// Get inventory grouped by SKU with unit counts
+// Get individual units from inventory
 $query = "
     SELECT 
+        i.unit_id,
         i.sku,
         s.description,
         s.uom,
         s.pieces,
-        COUNT(i.unit_id) as quantity_available,
-        COUNT(CASE WHEN i.status = 'reserved' THEN 1 END) as quantity_reserved,
-        MAX(i.received_at) as last_updated
+        i.location,
+        i.status,
+        i.received_at,
+        pl.reference_number
     FROM inventory i
     LEFT JOIN sku s ON i.sku = s.sku
+    LEFT JOIN packing_list_items pli ON i.unit_id = pli.unit_id
+    LEFT JOIN packing_list pl ON pli.mpl_id = pl.id
     WHERE i.status IN ('available', 'reserved')
-    GROUP BY i.sku, s.description, s.uom, s.pieces
-    ORDER BY i.sku
+    ORDER BY i.received_at DESC
 ";
 
 $result = $mysqli->query($query);
 $inventory = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
 // Calculate stats
-$total_skus = count($inventory);
-$total_units = array_sum(array_column($inventory, 'quantity_available'));
+$total_units = count($inventory);
+$unique_skus = count(array_unique(array_column($inventory, 'sku')));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -73,8 +76,8 @@ $total_units = array_sum(array_column($inventory, 'quantity_available'));
             <!-- Stats -->
             <div class="stats-row">
                 <div class="stat-card">
-                    <div class="stat-label">Total SKUs</div>
-                    <div class="stat-value"><?= number_format($total_skus) ?></div>
+                    <div class="stat-label">Unique SKUs</div>
+                    <div class="stat-value"><?= number_format($unique_skus) ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Total Units</div>
@@ -98,49 +101,40 @@ $total_units = array_sum(array_column($inventory, 'quantity_available'));
                 <table class="table" id="inventoryTable">
                     <thead>
                         <tr>
+                            <th>Unit ID</th>
+                            <th>Reference Number</th>
                             <th>SKU</th>
                             <th>Description</th>
                             <th>UOM</th>
-                            <th>Pieces/Unit</th>
-                            <th>Units Available</th>
-                            <th>Units Reserved</th>
+                            <th>Pieces</th>
+                            <th>Location</th>
                             <th>Status</th>
-                            <th>Last Updated</th>
+                            <th>Received</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($inventory)): ?>
                         <tr>
-                            <td colspan="8" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 <p>No inventory found.</p>
                             </td>
                         </tr>
                         <?php else: ?>
-                        <?php foreach ($inventory as $item):
-                            $available = (int)$item['quantity_available'];
-                            $reserved = (int)$item['quantity_reserved'];
-                            
-                            // Determine stock status
-                            if ($available === 0) {
-                                $status = 'Out of Stock';
-                                $status_class = 'badge-out';
-                            } elseif ($available < 10) {
-                                $status = 'Low Stock';
-                                $status_class = 'badge-low';
-                            } else {
-                                $status = 'In Stock';
-                                $status_class = 'badge-in-stock';
-                            }
-                        ?>
+                        <?php foreach ($inventory as $item): ?>
                         <tr>
-                            <td class="sku-id"><?= htmlspecialchars($item['sku']) ?></td>
-                            <td class="description"><?= htmlspecialchars($item['description']) ?></td>
+                            <td><span class="sku-id"><?= htmlspecialchars($item['unit_id']) ?></span></td>
+                            <td><span class="sku-id"><?= htmlspecialchars($item['reference_number']) ?></span></td>
+                            <td><span class="sku-id"><?= htmlspecialchars($item['sku']) ?></span></td>
+                            <td><span class="description"><?= htmlspecialchars($item['description']) ?></span></td>
                             <td><?= htmlspecialchars($item['uom']) ?></td>
                             <td><?= htmlspecialchars($item['pieces']) ?></td>
-                            <td class="qty"><?= number_format($available) ?></td>
-                            <td class="qty-reserved"><?= number_format($reserved) ?></td>
-                            <td><span class="status-badge <?= $status_class ?>"><?= $status ?></span></td>
-                            <td class="date-cell"><?= $item['last_updated'] ? date('M d, Y', strtotime($item['last_updated'])) : '—' ?></td>
+                            <td><?= htmlspecialchars($item['location']) ?></td>
+                            <td>
+                                <span class="status-badge <?= $item['status'] === 'available' ? 'badge-in-stock' : 'badge-reserved' ?>">
+                                    <?= ucfirst($item['status']) ?>
+                                </span>
+                            </td>
+                            <td class="date-cell"><?= date('M d, Y g:i A', strtotime($item['received_at'])) ?></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
