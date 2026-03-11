@@ -1,263 +1,331 @@
-# 4D WMS API Documentation
+# WMS API Documentation
 
-**Last Updated:** February 28, 2026  
+Complete reference for integrating with the 4D Warehouse Management System.
+
+**Administrator:** Enoch Tuffour  
+**Server:** Drexel University Web Server  
+**Database:** et556_db
+
+---
+
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Authentication](#authentication)
+3. [Key Concepts](#key-concepts)
+4. [Sending MPLs](#sending-mpls)
+5. [Sending Orders](#sending-orders)
+6. [Receiving Callbacks](#receiving-callbacks)
+7. [Error Handling](#error-handling)
+8. [Testing with Yaak](#testing-with-yaak)
+9. [Technical Reference](#technical-reference)
+
+---
+
+## Quick Start
+
+### Understanding the System
+
+The WMS uses **unit-based tracking**. Each physical item must have a unique `unit_id`.
+
+**Key Concept:** One item = one unit_id (not quantity-based)
+
+### Base URL
+
+**Production:**
+```
+https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1
+```
+
+### Endpoints
+
+- **Send MPL:** `POST /mpls.php`
+- **Send Order:** `POST /orders.php`
 
 ---
 
 ## Authentication
 
-All API requests require an API key in the `X-API-Key` header:
+Include this header in all requests:
 
 ```
 X-API-Key: sir-4d-api-2026
 ```
 
----
-
-## Base URL
-
-**Production (Drexel Server):**
-```
-https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1
-```
-
-**Local Development:**
-```
-http://localhost:8888/api/v1
-```
+All requests without a valid API key will return `401 Unauthorized`.
 
 ---
 
-## Key Features
+## Key Concepts
 
-**Auto-Create SKUs** - If a SKU doesn't exist, it will be created automatically when `sku_details` is provided  
-**Auto-Update SKUs** - If a SKU exists, it will be UPDATED with new details from `sku_details`  
-**Quantity Aggregation** - Multiple items with same SKU are automatically counted and aggregated  
-**Field Name Mapping** - Accepts both WMS and CMS field naming conventions  
-**Inventory Warnings** - Orders return warnings if inventory is insufficient (but still accept the order)
+### Unit-Based Inventory
+
+Each physical unit is tracked individually with a unique `unit_id`:
+
+```
+MPL receives 3 units of SKU "ABC-123":
+- unit_id: U001, sku: ABC-123
+- unit_id: U002, sku: ABC-123
+- unit_id: U003, sku: ABC-123
+
+Inventory = 3 separate records (not aggregated quantity)
+UI displays: ABC-123 (3 units available)
+```
+
+### Important Rules
+
+- `unit_id` must be **globally unique** across all MPLs
+- Each `unit_id` can only exist once in the system
+- Orders reference specific `unit_id` values
+- All `unit_id` values in an order must exist in inventory
+- Orders are rejected if any `unit_id` is missing (no partial orders)
 
 ---
 
+## Sending MPLs
 
+### Endpoint
 
-## Receiving MPL from CMS
+```
+POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php
+```
 
-**Endpoint:** `POST /api/v1/mpls.php`
+### Required Headers
 
-**Full URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php`
-
-**Description:** CMS sends a new Master Packing List to the WMS. The MPL will be stored with status "pending" until warehouse staff confirms it.
-
-### Request
-
-**Headers:**
 ```
 Content-Type: application/json
 X-API-Key: sir-4d-api-2026
 ```
 
-**Body (Flexible Format):**
+### Minimal Example
+
+Send 3 units of the same SKU:
+
 ```json
 {
-  "reference_number": "MPL-2024-001",
+  "reference_number": "MPL-2026-001",
+  "items": [
+    {"unit_id": "U001", "sku": "ABC-123"},
+    {"unit_id": "U002", "sku": "ABC-123"},
+    {"unit_id": "U003", "sku": "ABC-123"}
+  ]
+}
+```
+
+### Full Example with SKU Details
+
+```json
+{
+  "reference_number": "MPL-2026-001",
   "trailer_number": "TRAILER-12345",
   "expected_arrival": "2026-03-15",
   "items": [
     {
-      "unit_id": "R2A2508584",
+      "unit_id": "U001",
       "sku": "1720813-0132",
       "sku_details": {
-        "description": "Product Description",
+        "description": "ASH WHT FAS 4/4 RGH KD 9-11FT",
         "uom_primary": "PALLET",
-        "pieces": 50,
+        "pieces": 110,
         "length_inches": 48.0,
         "width_inches": 40.0,
         "height_inches": 50.0,
-        "weight_lbs": 1200.0
+        "weight_lbs": 1200.0,
+        "ficha": 452
       }
     },
     {
-      "unit_id": "R2A2508585",
+      "unit_id": "U002",
       "sku": "1720813-0132"
     }
   ]
 }
 ```
 
-**Important Notes:**
-- `quantity` field is **optional** - if not provided, each item counts as 1 unit
-- Multiple items with the same SKU are automatically aggregated into a single quantity
-- Accepts either `mpl_number` OR `reference_number`
-- `trailer_number` and `expected_arrival` are optional
-- `sku_details` is optional but recommended for auto-create/update
+### Field Reference
 
-### Field Mapping
+| Field | Required? | Description |
+|-------|-----------|-------------|
+| `reference_number` | Yes | Unique MPL identifier (also accepts `mpl_number`) |
+| `trailer_number` | No | Trailer tracking number |
+| `expected_arrival` | No | Expected arrival date (YYYY-MM-DD) |
+| `items` | Yes | Array of units (minimum 1) |
+| `items[].unit_id` | Yes | Globally unique unit identifier |
+| `items[].sku` | Yes | SKU code |
+| `items[].sku_details` | Recommended | Product information |
 
-The API accepts both WMS and CMS field naming conventions:
+### SKU Details Fields
 
-| CMS Field | WMS Field | Notes |
-|-----------|-----------|-------|
-| `reference_number` | `mpl_number` | Either name works |
-| `uom_primary` | `uom` | Either name works |
-| `length_inches` | `length` | Either name works |
-| `width_inches` | `width` | Either name works |
-| `height_inches` | `height` | Either name works |
-| `weight_lbs` | `weight` | Either name works |
+When providing `sku_details`:
 
-### SKU Auto-Create/Update Behavior
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | String | Product description |
+| `uom_primary` (or `uom`) | String | PALLET or BUNDLE |
+| `pieces` | Integer | Pieces per unit |
+| `length_inches` (or `length`) | Float | Length in inches |
+| `width_inches` (or `width`) | Float | Width in inches |
+| `height_inches` (or `height`) | Float | Height in inches |
+| `weight_lbs` (or `weight`) | Float | Weight in pounds |
+| `ficha` | Integer | Ficha number |
 
-**If SKU doesn't exist:**
-- Creates new SKU with provided `sku_details`
-- Returns error if SKU missing and no `sku_details` provided
+**Auto-Create/Update SKUs:**
+- If SKU doesn't exist → WMS creates it with provided details
+- If SKU exists → WMS updates it with new details
+- If omitted and SKU doesn't exist → Error returned
 
-**If SKU exists:**
-- **UPDATES** the SKU with new details from `sku_details`
-- Skips update if no `sku_details` provided
+### Success Response (201 Created)
 
-**Example:**
-```
-1st MPL: SKU "ABC-123" doesn't exist → Creates with description "Product v1"
-2nd MPL: SKU "ABC-123" exists → Updates to description "Product v2"
-```
-
-### Response
-
-**Success (201 Created):**
 ```json
 {
   "success": true,
   "message": "MPL received successfully",
   "mpl_id": 123,
-  "mpl_number": "MPL-2024-001",
-  "items_count": 2
+  "reference_number": "MPL-2026-001",
+  "units_count": 3
 }
 ```
 
-**Error - Duplicate MPL (409 Conflict):**
+### Error Responses
+
+**Duplicate MPL (409 Conflict):**
 ```json
 {
   "error": "Conflict",
-  "details": "MPL with reference number MPL-2024-001 already exists"
+  "details": "MPL with reference number MPL-2026-001 already exists"
 }
 ```
 
-**Error - Missing SKUs (400 Bad Request):**
+**Missing SKU (400 Bad Request):**
 ```json
 {
   "error": "Bad Request",
-  "details": "Missing SKUs in WMS: SKU-12345. Provide full SKU details to auto-create."
+  "details": "Missing SKUs in WMS: ABC-123. Provide full SKU details to auto-create."
+}
+```
+
+**Duplicate unit_id (500 Internal Server Error):**
+```json
+{
+  "error": "Internal Server Error",
+  "details": "Failed to process MPL: Duplicate entry 'U001' for key 'unit_id'"
 }
 ```
 
 ---
 
-## Receiving Order from CMS
+## Sending Orders
 
-**Endpoint:** `POST /api/v1/orders.php`
+### Endpoint
 
-**Full URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php`
+```
+POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php
+```
 
-**Description:** CMS sends a new customer order to the WMS. The order will be stored with status "pending" until warehouse staff ships it.
+### Required Headers
 
-### Request
-
-**Headers:**
 ```
 Content-Type: application/json
 X-API-Key: sir-4d-api-2026
 ```
 
-**Body (Flexible Format):**
+### Example Request
+
 ```json
 {
-  "order_number": "ORD-2024-001",
+  "order_number": "ORD-2026-001",
   "ship_to_company": "Acme Corporation",
   "ship_to_street": "123 Main St",
   "ship_to_city": "Philadelphia",
   "ship_to_state": "PA",
   "ship_to_zip": "19103",
   "items": [
-    {
-      "unit_id": "R2A2508584",
-      "sku": "1720813-0132",
-      "sku_details": {
-        "description": "Updated Product Info",
-        "uom_primary": "BOX",
-        "pieces": 24,
-        "length_inches": 12.0,
-        "width_inches": 10.0,
-        "height_inches": 8.0,
-        "weight_lbs": 25.0
-      }
-    },
-    {
-      "unit_id": "R2A2508585",
-      "sku": "1720813-0132"
-    }
+    {"unit_id": "U001", "sku": "ABC-123"},
+    {"unit_id": "U002", "sku": "ABC-123"}
   ]
 }
 ```
 
-**Important Notes:**
-- `quantity` field is **optional** - if not provided, each item counts as 1 unit
-- Multiple items with the same SKU are automatically aggregated
-- Accepts either `customer_name` OR `ship_to_company`
-- Address can be single field OR separate fields (street, city, state, zip)
-- `sku_details` is optional - will auto-create/update SKUs just like MPL endpoint
+### Field Reference
 
-### Field Mapping
+| Field | Required? | Description |
+|-------|-----------|-------------|
+| `order_number` | Yes | Unique order identifier |
+| `ship_to_company` (or `customer_name`) | Yes | Customer name |
+| `ship_to_street` | No | Street address |
+| `ship_to_city` | No | City |
+| `ship_to_state` | No | State |
+| `ship_to_zip` | No | ZIP code |
+| `items` | Yes | Array of units (minimum 1) |
+| `items[].unit_id` | Yes | Must exist in WMS inventory |
+| `items[].sku` | Yes | SKU code |
 
-| CMS Field | WMS Field | Notes |
-|-----------|-----------|-------|
-| `ship_to_company` | `customer_name` | Either name works |
-| `ship_to_street`, `ship_to_city`, `ship_to_state`, `ship_to_zip` | `address` | Combined into single address |
+### Validation Rules
 
-### Response
+**All units must exist in inventory:**
+- Each `unit_id` must have status `available` in inventory
+- If **any** `unit_id` is not found → entire order rejected
+- No partial orders accepted
 
-**Success (201 Created):**
+**Example:**
+```
+Inventory: U001, U002, U003
+Order: U001, U002 → SUCCESS
+Order: U001, U999 → REJECTED (U999 not in inventory)
+```
+
+### Success Response (201 Created)
+
 ```json
 {
   "success": true,
   "message": "Order received successfully",
   "order_id": 456,
-  "order_number": "ORD-2024-001",
+  "order_number": "ORD-2026-001",
   "customer_name": "Acme Corporation",
-  "items_count": 2
+  "units_count": 2
 }
 ```
 
-**Success with Inventory Warnings:**
+### Error Responses
+
+**Units Not in Inventory (400 Bad Request):**
 ```json
 {
-  "success": true,
-  "message": "Order received successfully",
-  "order_id": 456,
-  "order_number": "ORD-2024-001",
-  "customer_name": "Acme Corporation",
-  "items_count": 2,
-  "warnings": {
-    "insufficient_inventory": [
-      "1720813-0132 (need 25, have 10)"
-    ]
-  }
+  "error": "Bad Request",
+  "details": "Units not in WMS inventory: U001, U002"
 }
 ```
 
-**Note:** Orders are accepted even with insufficient inventory (warning only).
+**Duplicate Order (409 Conflict):**
+```json
+{
+  "error": "Conflict",
+  "details": "Order with number ORD-2026-001 already exists"
+}
+```
 
 ---
 
-## WMS Callbacks to CMS
+## Receiving Callbacks
 
-When warehouse staff confirms an MPL or ships an order, the WMS sends a callback notification to the CMS.
+When warehouse staff confirms an MPL or ships an order, WMS sends callbacks to CMS.
 
-**CMS Callback Endpoints:**
-- MPL: `https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/mpls.php`
-- Orders: `https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/orders.php`
+### Callback Endpoints (CMS)
+
+**MPL Confirmations:**
+```
+POST https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/mpls.php
+```
+
+**Order Shipments:**
+```
+POST https://digmstudents.westphal.drexel.edu/~sej84/idm250/api/v1/orders.php
+```
 
 ### MPL Confirmation Callback
 
-**Triggered when:** Warehouse staff clicks "Confirm MPL" button in WMS UI
+**When:** Warehouse confirms an MPL
 
 **Headers Sent:**
 ```
@@ -269,19 +337,23 @@ X-API-Key: sir-4d-api-2026
 ```json
 {
   "action": "confirm",
-  "reference_number": "MPL-2024-001"
+  "reference_number": "MPL-2026-001"
 }
 ```
 
-**What Happens in WMS:**
-1. Inventory quantities are increased
-2. MPL status changes to "confirmed"
-3. MPL line items status changes to "received"
+**What Happens:**
+1. All units from MPL added to inventory (status = 'available')
+2. MPL status changes to 'confirmed'
+3. All line items status changes to 'received'
 4. Callback sent to CMS
+
+**CMS Should:**
+- Update system to mark MPL as confirmed
+- Return HTTP 200 OK
 
 ### Order Shipment Callback
 
-**Triggered when:** Warehouse staff clicks "Ship Order" button in WMS UI
+**When:** Warehouse ships an order
 
 **Headers Sent:**
 ```
@@ -293,188 +365,291 @@ X-API-Key: sir-4d-api-2026
 ```json
 {
   "action": "ship",
-  "order_number": "ORD-2024-001",
-  "shipped_at": "2026-02-28"
+  "order_number": "ORD-2026-001",
+  "shipped_at": "2026-03-08"
 }
 ```
 
-**What Happens in WMS:**
-1. Inventory quantities are decreased
-2. Order status changes to "shipped"
-3. Shipment logged to shipped_items history
+**What Happens:**
+1. Individual units deleted from inventory
+2. Order status changes to 'shipped'
+3. Units logged to shipped_items history
 4. Callback sent to CMS
 
----
-
-## Quantity Aggregation
-
-The API automatically aggregates multiple items with the same SKU into a single quantity.
-
-**Example Input:**
-```json
-{
-  "items": [
-    {"unit_id": "U001", "sku": "ABC-123"},
-    {"unit_id": "U002", "sku": "ABC-123"},
-    {"unit_id": "U003", "sku": "ABC-123"},
-    {"unit_id": "U004", "sku": "XYZ-789"}
-  ]
-}
-```
-
-**Stored As:**
-- SKU "ABC-123": quantity = 3
-- SKU "XYZ-789": quantity = 1
-
-This allows CMS to send one record per physical unit while WMS tracks aggregated quantities.
+**CMS Should:**
+- Update system to mark order as shipped
+- Notify customer
+- Return HTTP 200 OK
 
 ---
 
-## Error Codes
+## Error Handling
+
+### HTTP Status Codes
 
 | Code | Meaning |
 |------|---------|
 | 200 | OK - Request successful |
 | 201 | Created - Resource created successfully |
-| 400 | Bad Request - Invalid data or missing fields |
+| 400 | Bad Request - Invalid data or units not in inventory |
 | 401 | Unauthorized - Invalid or missing API key |
-| 405 | Method Not Allowed - Wrong HTTP method (use POST) |
-| 409 | Conflict - Resource already exists (duplicate MPL/Order number) |
-| 500 | Internal Server Error - Contact WMS administrator |
+| 405 | Method Not Allowed - Use POST method |
+| 409 | Conflict - Duplicate reference_number/order_number |
+| 500 | Internal Server Error - Database error or duplicate unit_id |
 
----
+### Common Errors
 
-## Testing with cURL
-
-### Send MPL to WMS:
-```bash
-curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: sir-4d-api-2026" \
-  -d '{
-    "reference_number": "MPL-TEST-001",
-    "trailer_number": "TRAILER-123",
-    "expected_arrival": "2026-03-15",
-    "items": [
-      {
-        "sku": "TEST-SKU-001",
-        "quantity": 100,
-        "sku_details": {
-          "description": "Test Product",
-          "uom_primary": "PALLET",
-          "pieces": 50,
-          "length_inches": 48.0,
-          "width_inches": 40.0,
-          "height_inches": 50.0,
-          "weight_lbs": 1200.0
-        }
-      }
-    ]
-  }'
+**Invalid API Key:**
+```json
+{
+  "error": "Unauthorized",
+  "details": "Invalid or missing API key"
+}
 ```
 
-### Send Order to WMS:
-```bash
-curl -X POST https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: sir-4d-api-2026" \
-  -d '{
-    "order_number": "ORD-TEST-001",
-    "ship_to_company": "Test Customer",
-    "ship_to_street": "123 Test St",
-    "ship_to_city": "Philadelphia",
-    "ship_to_state": "PA",
-    "ship_to_zip": "19103",
-    "items": [
-      {"sku": "TEST-SKU-001", "quantity": 25}
-    ]
-  }'
+**Missing Required Field:**
+```json
+{
+  "error": "Bad Request",
+  "details": "Missing required field: reference_number"
+}
 ```
 
----
-
-## Complete Workflow Example
-
-### 1. CMS Sends MPL
+**Duplicate unit_id:**
+```json
+{
+  "error": "Internal Server Error",
+  "details": "Failed to process MPL: Duplicate entry 'U001' for key 'unit_id'"
+}
 ```
-POST /api/v1/mpls.php
-→ Creates MPL with status "pending"
-→ Auto-creates SKU if doesn't exist
-→ OR updates SKU if it exists
-```
-
-### 2. Warehouse Confirms MPL
-```
-User clicks "Confirm MPL" in WMS UI
-→ Adds quantity to inventory
-→ Sets MPL status to "confirmed"
-→ Sets line items status to "received"
-→ Sends callback to CMS
-```
-
-### 3. CMS Sends Order
-```
-POST /api/v1/orders.php
-→ Creates order with status "pending"
-→ Checks inventory (warning only)
-→ Updates SKU details if provided
-```
-
-### 4. Warehouse Ships Order
-```
-User clicks "Ship Order" in WMS UI
-→ Deducts quantity from inventory
-→ Sets order status to "shipped"
-→ Logs to shipped_items history
-→ Sends callback to CMS
-```
-
----
-
-## Integration Notes
-
-### Timezone
-All timestamps are stored in **Eastern Time (EST/EDT)**.  
-Database timezone: `-05:00` (EST) / `-04:00` (EDT)
-
-### Data Persistence
-- **MPLs and Orders:** Cannot be deleted once created (can only be cancelled)
-- **Shipped Items:** Permanent audit trail, cannot be deleted
-- **Inventory:** Auto-managed via MPL confirmations and order shipments
-- **SKUs:** Can be manually edited in WMS or auto-updated via API
 
 ### Best Practices
-1. Always include `sku_details` to ensure SKU information stays current
-2. Use unique `reference_number` and `order_number` values
-3. Monitor inventory warnings in order responses
-4. Handle callback responses (200 OK expected)
+
+1. **Always generate globally unique unit_ids** - Use UUIDs, timestamps, or sequential IDs with prefix
+2. **Include sku_details on first send** - Ensures SKU information is current
+3. **Handle 400 errors gracefully** - Check which units are missing from inventory
+4. **Retry on 500 errors** - Temporary database issues
+5. **Don't retry 409 errors** - Resource already exists
 
 ---
 
-## Support & Contact
+## Testing with Yaak
 
-**WMS Administrator:** Elly Tang  
-**Server:** Drexel University Web Server  
-**Database:** et556_db  
+### Test 1: Send MPL
 
-**System URLs:**
-- WMS Login: `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/login.php`
-- API Base: `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1`
+**Method:** POST  
+**URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/mpls.php`
+
+**Headers:**
+```
+Content-Type: application/json
+X-API-Key: sir-4d-api-2026
+```
+
+**Body:**
+```json
+{
+  "reference_number": "TEST-MPL-2026-001",
+  "trailer_number": "TRAILER-999",
+  "expected_arrival": "2026-03-15",
+  "items": [
+    {
+      "unit_id": "TEST-U-001",
+      "sku": "TEST-SKU-001",
+      "sku_details": {
+        "description": "Test Product",
+        "uom_primary": "PALLET",
+        "pieces": 100,
+        "length_inches": 48.0,
+        "width_inches": 40.0,
+        "height_inches": 50.0,
+        "weight_lbs": 1200.0,
+        "ficha": 999
+      }
+    },
+    {
+      "unit_id": "TEST-U-002",
+      "sku": "TEST-SKU-001"
+    }
+  ]
+}
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "MPL received successfully",
+  "mpl_id": 123,
+  "reference_number": "TEST-MPL-2026-001",
+  "units_count": 2
+}
+```
+
+### Test 2: Verify in UI
+
+1. Login: `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/login.php`
+2. Go to MPL page → See "TEST-MPL-2026-001" (status: Pending)
+3. Click to view items → See 2 individual units
+4. Go to SKU page → See "TEST-SKU-001" with UOM = "PALLET"
+5. Confirm MPL → Units move to inventory
+
+### Test 3: Send Order
+
+**Method:** POST  
+**URL:** `https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1/orders.php`
+
+**Headers:**
+```
+Content-Type: application/json
+X-API-Key: sir-4d-api-2026
+```
+
+**Body:**
+```json
+{
+  "order_number": "TEST-ORD-2026-001",
+  "ship_to_company": "Test Customer Inc",
+  "ship_to_street": "123 Test St",
+  "ship_to_city": "Philadelphia",
+  "ship_to_state": "PA",
+  "ship_to_zip": "19103",
+  "items": [
+    {"unit_id": "TEST-U-001", "sku": "TEST-SKU-001"}
+  ]
+}
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Order received successfully",
+  "order_id": 456,
+  "order_number": "TEST-ORD-2026-001",
+  "customer_name": "Test Customer Inc",
+  "units_count": 1
+}
+```
+
+### Test 4: Verify Order
+
+1. Go to Orders page → See "TEST-ORD-2026-001" (status: Pending)
+2. Go to Inventory → See 1 unit remaining (2 received - 1 ordered)
+3. Ship Order → Units removed from inventory
+4. Go to Shipped Items → See unit shipped
+
+---
+
+## Technical Reference
+
+### Database Schema
+
+**packing_list:**
+- `id` - Primary key
+- `reference_number` - UNIQUE, MPL identifier
+- `trailer_number` - Trailer tracking
+- `expected_arrival` - Expected date
+- `status` - pending, confirmed, closed
+- `created_at` - Timestamp
+- `confirmed_at` - Confirmation timestamp
+- `confirmed_by_user_id` - User who confirmed
+
+**packing_list_items:**
+- `id` - Primary key
+- `mpl_id` - Foreign key to packing_list
+- `unit_id` - UNIQUE, unit identifier
+- `sku` - SKU code
+- `status` - pending, received
+
+**orders:**
+- `id` - Primary key
+- `order_number` - UNIQUE, order identifier
+- `ship_to_company` - Customer name
+- `ship_to_street`, `ship_to_city`, `ship_to_state`, `ship_to_zip` - Address
+- `status` - pending, shipped, closed
+- `created_at` - Timestamp
+- `shipped_at` - Shipment timestamp
+
+**order_items:**
+- `id` - Primary key
+- `order_id` - Foreign key to orders
+- `unit_id` - UNIQUE, unit identifier
+- `sku` - SKU code
+
+**inventory:**
+- `id` - Primary key
+- `unit_id` - UNIQUE, unit identifier
+- `sku` - SKU code
+- `location` - Warehouse location (default: 'warehouse')
+- `status` - available, reserved, shipped
+- `received_at` - Timestamp
+
+**shipped_items:**
+- `id` - Primary key
+- `order_id` - Order reference
+- `order_number` - Order number
+- `unit_id` - Unit identifier
+- `sku` - SKU code
+- `sku_description` - Product description
+- `shipped_at` - Timestamp
+
+### Unique Constraints
+
+1. `packing_list.reference_number` - MPL number must be unique
+2. `packing_list_items.unit_id` - Each unit can only appear once across ALL MPLs
+3. `orders.order_number` - Order number must be unique
+4. `order_items.unit_id` - Each unit can only appear once across ALL orders
+5. `inventory.unit_id` - Each unit can only exist once in inventory
+
+### Timezone
+
+All timestamps stored in **Eastern Time (EST/EDT)**.  
+Automatically adjusts for daylight saving time.
+
+### Unit Workflow
+
+1. **MPL Received** → `unit_id` in `packing_list_items` (status: pending)
+2. **MPL Confirmed** → `unit_id` in `inventory` (status: available)
+3. **Order Created** → `unit_id` in `order_items`, removed from `inventory`
+4. **Order Shipped** → `unit_id` in `shipped_items`, removed from `order_items`
+
+### Field Name Compatibility
+
+The API accepts both CMS and WMS field names:
+
+| CMS Field | WMS Field | Both Work |
+|-----------|-----------|-----------|
+| `mpl_number` | `reference_number` | Yes |
+| `customer_name` | `ship_to_company` | Yes |
+| `uom_primary` | `uom` | Yes |
+| `length_inches` | `length` | Yes |
+| `width_inches` | `width` | Yes |
+| `height_inches` | `height` | Yes |
+| `weight_lbs` | `weight` | Yes |
+
+---
+
+## Support
+
+**WMS Administrator:** Enoch Tuffour  
+**WMS Login:** https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/login.php  
+**API Base:** https://digmstudents.westphal.drexel.edu/~et556/idm250-4d/api/v1
 
 ---
 
 ## Changelog
 
-**Version 2.0 (Feb 28, 2026)**
-- Added SKU auto-update functionality
-- Added quantity aggregation for multiple items
-- Added support for CMS field naming conventions
-- Added trailer_number and expected_arrival to MPL
-- Updated line items to receive status on MPL confirmation
-- Improved field mapping documentation
+### Current Version
+- Unit-based tracking system (one record per physical unit)
+- `unit_id` required for all items
+- Individual unit tracking in inventory
+- SKU auto-create/update via API
+- Timezone auto-adjusts for EST/EDT
+- UOM field uses dropdown (PALLET or BUNDLE)
+- Inventory displays individual units with reference numbers
+- Fixed bind_param bug in SKU auto-update
 
-**Version 1.0 (Feb 25, 2026)**
-- Initial API release
-- Basic MPL and Order endpoints
-- SKU auto-create functionality
-- Callback system
+### Previous Versions
+- Version 2.0: Added SKU auto-update and CMS field compatibility
+- Version 1.0: Initial quantity-based system
