@@ -123,6 +123,7 @@ $unique_skus = count(array_unique(array_column($inventory, 'sku')));
                         <?php foreach ($inventory as $item): ?>
                         <tr>
                             <td><span class="sku-id"><?= htmlspecialchars($item['unit_id']) ?></span></td>
+                            
                             <td><span class="sku-id"><?= htmlspecialchars($item['reference_number']) ?></span></td>
                             <td><span class="sku-id"><?= htmlspecialchars($item['sku']) ?></span></td>
                             <td><span class="description"><?= htmlspecialchars($item['description']) ?></span></td>
